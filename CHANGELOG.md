@@ -1,4 +1,4 @@
-# Changelog - NeetCode 250 Enforcer v2.0.0
+# Changelog - Leetcode Buddy v2.0.0
 
 ## Major Changes
 

@@ -1,6 +1,6 @@
-# NeetCode 250 Enforcer - Technical Architecture
+# Leetcode Buddy - Technical Architecture
 
-This document provides a comprehensive technical explanation of how the NeetCode 250 Enforcer Chrome extension works, including its architecture, data flow, and implementation details.
+This document provides a comprehensive technical explanation of how the Leetcode Buddy Chrome extension works, including its architecture, data flow, and implementation details.
 
 ## Table of Contents
 
@@ -17,7 +17,7 @@ This document provides a comprehensive technical explanation of how the NeetCode
 
 ## Overview
 
-The NeetCode 250 Enforcer is a Chrome Extension (Manifest V3) that enforces sequential completion of the NeetCode 250 problem list by:
+Leetcode Buddy is a Chrome Extension (Manifest V3) that helps enforce sequential completion of the NeetCode 250 problem list by:
 
 1. **Blocking non-whitelisted websites** using Chrome's `declarativeNetRequest` API
 2. **Redirecting users** to their current unsolved problem on LeetCode
@@ -646,7 +646,7 @@ Potential improvements:
 
 ## Conclusion
 
-The NeetCode 250 Enforcer is a well-architected Chrome extension that leverages modern web APIs to create a focused learning environment. Its multi-layered detection system, efficient storage, and user-friendly bypass mechanism make it both effective and practical for enforcing sequential problem-solving.
+Leetcode Buddy is a well-architected Chrome extension that leverages modern web APIs to create a focused learning environment. Its multi-layered detection system, efficient storage, and user-friendly bypass mechanism make it both effective and practical for helping enforce sequential problem-solving.
 
 The extension demonstrates:
 - Proper use of Chrome Extension Manifest V3 APIs

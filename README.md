@@ -1,6 +1,6 @@
-# 🎯 NeetCode 250 Enforcer
+# 🤝 Leetcode Buddy
 
-A Chrome extension that forces you to complete the NeetCode 250 problem list in order by restricting access to non-whitelisted websites until you solve the current problem.
+Your daily LeetCode companion! A Chrome extension that helps you complete the NeetCode 250 problem list in order by restricting access to non-whitelisted websites until you solve the current problem.
 
 ## Features
 

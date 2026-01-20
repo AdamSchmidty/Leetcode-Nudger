@@ -1,4 +1,4 @@
-// NeetCode 250 Enforcer - Popup Script with Category Stats
+// Leetcode Buddy - Popup Script with Category Stats
 
 // DOM elements
 const progressFill = document.getElementById("progressFill");
@@ -120,9 +120,18 @@ async function updateStatus() {
         currentProblemLink.href = `https://leetcode.com/problems/${problem.slug}/`;
       }
 
-      // Update daily solve status
+      // Update daily solve status with celebration animation
       if (response.dailySolvedToday) {
-        dailyStatus.style.display = "block";
+        if (dailyStatus.style.display !== "block") {
+          // First time showing - add celebration effect
+          dailyStatus.style.display = "block";
+          dailyStatus.style.animation = "none";
+          setTimeout(() => {
+            dailyStatus.style.animation = "celebrationPulse 0.6s ease-in-out";
+          }, 10);
+        } else {
+          dailyStatus.style.display = "block";
+        }
       } else {
         dailyStatus.style.display = "none";
       }

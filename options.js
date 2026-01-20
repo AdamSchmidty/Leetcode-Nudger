@@ -1,4 +1,4 @@
-// NeetCode 250 Enforcer - Options Page Script
+// Leetcode Buddy - Options Page Script
 
 const problemSetSelect = document.getElementById("problemSetSelect");
 const totalProblems = document.getElementById("totalProblems");
@@ -63,21 +63,21 @@ cancelReset.addEventListener("click", () => {
 // Confirm reset
 confirmReset.addEventListener("click", async () => {
   try {
-    // Clear all progress
-    await chrome.storage.sync.clear();
-    await chrome.storage.local.clear();
+    // Send reset message to background script
+    const response = await chrome.runtime.sendMessage({ type: "RESET_PROGRESS" });
+    
+    if (response.success) {
+      // Reload settings
+      await loadSettings();
 
-    // Refresh status
-    await chrome.runtime.sendMessage({ type: "REFRESH_STATUS" });
+      // Hide confirmation
+      resetConfirm.style.display = "none";
+      resetButton.style.display = "block";
 
-    // Reload settings
-    await loadSettings();
-
-    // Hide confirmation
-    resetConfirm.style.display = "none";
-    resetButton.style.display = "block";
-
-    alert("Progress reset successfully!");
+      alert("Progress reset successfully!");
+    } else {
+      throw new Error(response.error || "Reset failed");
+    }
   } catch (error) {
     console.error("Failed to reset progress:", error);
     alert("Failed to reset progress. Please try again.");

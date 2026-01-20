@@ -1,4 +1,4 @@
-// NeetCode 250 Enforcer - Background Service Worker with Category Support and Daily Solve
+// Leetcode Buddy - Background Service Worker with Category Support and Daily Solve
 
 const WHITELIST = ["leetcode.com", "neetcode.io", "chatgpt.com"];
 const REDIRECT_RULE_ID = 1000;
@@ -384,7 +384,7 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 // Initialize on startup
 chrome.runtime.onStartup.addListener(async () => {
-  console.log("NeetCode 250 Enforcer started");
+  console.log("Leetcode Buddy started");
   await loadAliases();
   await checkDailyReset();
   await computeNextProblem();
@@ -453,6 +453,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           success: true,
           problem: nextProblem,
         });
+      } else if (message.type === "RESET_PROGRESS") {
+        console.log("Resetting all progress...");
+        
+        // Clear all storage
+        await chrome.storage.sync.clear();
+        await chrome.storage.local.clear();
+        
+        // Reset in-memory state
+        problemSet = null;
+        currentCategoryIndex = 0;
+        currentProblemIndex = 0;
+        currentProblemSlug = null;
+        
+        // Force reload problem set
+        await loadProblemSet();
+        
+        // Initialize to first problem with empty solved set
+        const firstProblem = problemSet.categories[0].problems[0];
+        currentCategoryIndex = 0;
+        currentProblemIndex = 0;
+        currentProblemSlug = firstProblem.slug;
+        
+        await saveState(0, 0, new Set());
+        
+        // Reinstall redirect rule
+        await installRedirectRule();
+        
+        console.log("Progress reset complete. Starting from:", firstProblem.slug);
+        
+        sendResponse({ success: true });
       }
     } catch (error) {
       console.error("Error handling message:", error);

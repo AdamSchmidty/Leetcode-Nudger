@@ -1,4 +1,4 @@
-// NeetCode 250 Enforcer - Content Script for LeetCode
+// Leetcode Buddy - Content Script for LeetCode
 // Runs on leetcode.com/problems/* pages to detect successful submissions
 
 let problemAliases = {};
@@ -100,8 +100,59 @@ async function checkAndNotify() {
   }
 }
 
+// Load and trigger confetti animation
+function triggerConfetti() {
+  // Load canvas-confetti library if not already loaded
+  if (typeof confetti === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js';
+    script.onload = () => {
+      launchConfetti();
+    };
+    document.head.appendChild(script);
+  } else {
+    launchConfetti();
+  }
+}
+
+// Launch confetti animation
+function launchConfetti() {
+  const duration = 3000;
+  const animationEnd = Date.now() + duration;
+  const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 10001 };
+
+  function randomInRange(min, max) {
+    return Math.random() * (max - min) + min;
+  }
+
+  const interval = setInterval(function() {
+    const timeLeft = animationEnd - Date.now();
+
+    if (timeLeft <= 0) {
+      return clearInterval(interval);
+    }
+
+    const particleCount = 50 * (timeLeft / duration);
+    
+    // Launch confetti from different positions
+    confetti({
+      ...defaults,
+      particleCount,
+      origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 }
+    });
+    confetti({
+      ...defaults,
+      particleCount,
+      origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 }
+    });
+  }, 250);
+}
+
 // Show a notification when problem is solved
 function showSolvedNotification() {
+  // Trigger confetti celebration!
+  triggerConfetti();
+  
   const notification = document.createElement("div");
   notification.style.cssText = `
     position: fixed;
@@ -112,28 +163,52 @@ function showSolvedNotification() {
     padding: 20px 24px;
     border-radius: 12px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    z-index: 10000;
+    z-index: 10002;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     font-size: 16px;
     font-weight: 600;
     max-width: 350px;
+    animation: slideIn 0.5s ease-out;
   `;
   notification.innerHTML = `
-    <div style="margin-bottom: 8px; font-size: 24px;">🎉</div>
-    <div>Daily Problem Solved!</div>
+    <div style="margin-bottom: 8px; font-size: 32px; animation: bounce 0.6s ease-in-out;">🎉</div>
+    <div style="font-size: 18px; margin-bottom: 4px;">Amazing! Daily Problem Solved!</div>
     <div style="font-size: 14px; font-weight: 400; opacity: 0.95; margin-top: 6px;">
-      All websites unblocked until midnight. Great work!
+      All websites unblocked until midnight. Great work! 🎊
     </div>
   `;
 
+  // Add animations
+  const style = document.createElement('style');
+  style.textContent = `
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+    @keyframes bounce {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.3); }
+    }
+  `;
+  document.head.appendChild(style);
   document.body.appendChild(notification);
 
-  // Remove notification after 5 seconds
+  // Remove notification after 6 seconds
   setTimeout(() => {
-    notification.style.transition = "opacity 0.5s";
+    notification.style.transition = "opacity 0.5s, transform 0.5s";
     notification.style.opacity = "0";
-    setTimeout(() => notification.remove(), 500);
-  }, 5000);
+    notification.style.transform = "translateX(400px)";
+    setTimeout(() => {
+      notification.remove();
+      style.remove();
+    }, 500);
+  }, 6000);
 }
 
 // Monitor for successful submissions
