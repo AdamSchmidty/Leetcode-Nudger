@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NeetCode 250 Enforcer - Options</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🎯 NeetCode 250 Enforcer</h1>
+        <p class="subtitle">Settings & Configuration</p>
+      </header>
+
+      <main>
+        <section class="option-section">
+          <h2>Problem Set Selection</h2>
+          <p class="description">
+            Choose which problem set you want to work through. More sets coming
+            soon!
+          </p>
+
+          <div class="form-group">
+            <label for="problemSetSelect">Active Problem Set:</label>
+            <select id="problemSetSelect" class="problem-set-select">
+              <option value="neetcode250">NeetCode 250</option>
+            </select>
+          </div>
+
+          <div id="setInfo" class="set-info">
+            <div class="info-item">
+              <span class="info-label">Total Problems:</span>
+              <span id="totalProblems" class="info-value">250</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Categories:</span>
+              <span id="totalCategories" class="info-value">18</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">Your Progress:</span>
+              <span id="yourProgress" class="info-value">0 / 250</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="option-section">
+          <h2>Reset Progress</h2>
+          <p class="description">
+            Clear all solved problems and start fresh. This action cannot be
+            undone!
+          </p>
+
+          <button id="resetButton" class="danger-button">
+            Reset All Progress
+          </button>
+
+          <div id="resetConfirm" class="reset-confirm" style="display: none">
+            <p class="warning-text">
+              Are you sure? This will delete all your progress!
+            </p>
+            <div class="button-group">
+              <button id="confirmReset" class="danger-button">
+                Yes, Reset Everything
+              </button>
+              <button id="cancelReset" class="secondary-button">Cancel</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="option-section">
+          <h2>About</h2>
+          <p class="description">
+            This extension helps you stay focused on completing the NeetCode 250
+            problem list in order. After solving one problem per day, all
+            websites are unblocked until midnight.
+          </p>
+
+          <div class="about-links">
+            <a
+              href="https://neetcode.io/practice"
+              target="_blank"
+              class="link-button"
+            >
+              Visit NeetCode
+            </a>
+            <a
+              href="https://leetcode.com"
+              target="_blank"
+              class="link-button"
+            >
+              Visit LeetCode
+            </a>
+          </div>
+        </section>
+      </main>
+
+      <footer>
+        <p class="footer-text">
+          Keep grinding! 💪 One problem at a time, one day at a time.
+        </p>
+      </footer>
+    </div>
+
+    <script src="options.js"></script>
+  </body>
+</html>
+

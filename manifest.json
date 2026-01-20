@@ -1,0 +1,48 @@
+{
+  "manifest_version": 3,
+  "name": "NeetCode 250 Enforcer",
+  "version": "2.0.0",
+  "description": "Forces focus on NeetCode 250 problems organized by category - only allows neetcode.io, leetcode.com, and chatgpt.com. Solve one problem per day to unlock all sites until midnight.",
+  "permissions": [
+    "storage",
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback"
+  ],
+  "host_permissions": [
+    "*://*/*",
+    "https://leetcode.com/*",
+    "https://neetcode.io/*",
+    "https://chatgpt.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://leetcode.com/problems/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options.html",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["neetcode250.json", "problemAliases.json"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

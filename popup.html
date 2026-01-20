@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NeetCode 250 Enforcer</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🎯 NeetCode 250</h1>
+        <p class="subtitle">Enforcer</p>
+      </header>
+
+      <div class="daily-status" id="dailyStatus" style="display: none">
+        <div class="daily-badge">
+          ✅ Daily Problem Solved!
+        </div>
+        <p class="daily-message">
+          All websites unblocked until midnight. Great work! 🎉
+        </p>
+      </div>
+
+      <div class="status-section">
+        <div class="progress-container">
+          <h3 class="section-title">Overall Progress</h3>
+          <div class="progress-bar">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+          <div class="progress-text">
+            <span id="solvedCount">0</span> /
+            <span id="totalCount">250</span> Problems Solved
+          </div>
+        </div>
+
+        <div class="current-problem">
+          <h3>Current Problem:</h3>
+          <div class="problem-category" id="currentCategory">Arrays & Hashing</div>
+          <div id="currentProblemName" class="problem-name">Loading...</div>
+          <div class="problem-difficulty" id="currentDifficulty">Medium</div>
+          <a
+            id="currentProblemLink"
+            href="#"
+            target="_blank"
+            class="problem-link"
+          >
+            Open on LeetCode →
+          </a>
+        </div>
+      </div>
+
+      <div class="category-stats-section">
+        <h3 class="section-title">Category Progress</h3>
+        <div id="categoryList" class="category-list">
+          <!-- Categories will be dynamically inserted here -->
+        </div>
+        <button id="toggleCategories" class="toggle-button">
+          Show All Categories
+        </button>
+      </div>
+
+      <div class="bypass-section">
+        <h3>Take a Break</h3>
+        <p class="bypass-description">
+          Need a breather? Get 10 minutes of unrestricted browsing.
+        </p>
+
+        <div id="bypassActive" class="bypass-active" style="display: none">
+          <div class="bypass-timer">
+            <div class="timer-icon">⏱️</div>
+            <div class="timer-text">
+              <div class="timer-label">Break time remaining:</div>
+              <div id="bypassTimer" class="timer-value">10:00</div>
+            </div>
+          </div>
+        </div>
+
+        <div id="bypassControls" class="bypass-controls">
+          <button id="bypassButton" class="bypass-button">
+            Start Break (10 min)
+          </button>
+          <div
+            id="cooldownMessage"
+            class="cooldown-message"
+            style="display: none"
+          >
+            Next break available in: <span id="cooldownTimer">--:--</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="actions-section">
+        <button id="refreshButton" class="secondary-button">
+          🔄 Refresh Status
+        </button>
+        <button id="optionsButton" class="secondary-button">
+          ⚙️ Settings
+        </button>
+      </div>
+
+      <footer>
+        <p class="footer-text">Keep grinding! 💪 One day at a time.</p>
+      </footer>
+    </div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>
