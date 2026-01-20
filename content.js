@@ -91,12 +91,43 @@ async function checkAndNotify() {
       console.log("Background response:", response);
 
       if (response.dailySolved) {
-        // Show notification
-        showSolvedNotification();
+        // Check if celebration has already been shown today
+        const shouldShowCelebration = await checkIfShouldShowCelebration();
+        
+        if (shouldShowCelebration) {
+          // Show notification and mark as shown
+          showSolvedNotification();
+          await markCelebrationAsShown();
+        }
       }
     } catch (error) {
       console.error("Failed to notify background:", error);
     }
+  }
+}
+
+// Check if celebration should be shown (only once per day)
+async function checkIfShouldShowCelebration() {
+  try {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const result = await chrome.storage.local.get(['celebrationShownDate']);
+    
+    // Show celebration if it hasn't been shown today
+    return result.celebrationShownDate !== today;
+  } catch (error) {
+    console.error("Failed to check celebration status:", error);
+    return true; // Show on error to be safe
+  }
+}
+
+// Mark celebration as shown for today
+async function markCelebrationAsShown() {
+  try {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    await chrome.storage.local.set({ celebrationShownDate: today });
+    console.log("Celebration marked as shown for:", today);
+  } catch (error) {
+    console.error("Failed to mark celebration as shown:", error);
   }
 }
 

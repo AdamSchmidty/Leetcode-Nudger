@@ -108,7 +108,11 @@ async function checkDailyReset() {
   if (dailyState.lastSolveDate && dailyState.lastSolveDate !== today) {
     // Day has changed, reset daily solve and restore redirects
     console.log("New day detected, resetting daily solve status");
-    await chrome.storage.local.remove(["dailySolveDate", "dailySolveTimestamp"]);
+    await chrome.storage.local.remove([
+      "dailySolveDate", 
+      "dailySolveTimestamp", 
+      "celebrationShownDate"
+    ]);
     await installRedirectRule();
   }
 }
