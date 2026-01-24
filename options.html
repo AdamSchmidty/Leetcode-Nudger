@@ -45,6 +45,42 @@
         </section>
 
         <section class="option-section">
+          <h2>Display Preferences</h2>
+          <p class="description">
+            Customize your experience with Leetcode Buddy.
+          </p>
+
+          <div class="form-group">
+            <div class="toggle-setting">
+              <div class="toggle-info">
+                <label for="celebrationToggle" class="toggle-label">
+                  Celebration Animations
+                </label>
+                <p class="toggle-description">
+                  Show confetti and celebration animations when you solve your daily problem
+                </p>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="celebrationToggle" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </section>
+
+        <section class="option-section">
+          <h2>Category Progress</h2>
+          <p class="description">
+            View all problems organized by category. Click to expand and see individual problems.
+          </p>
+          
+          <div id="categoryAccordion" class="category-accordion">
+            <!-- Dynamically generated category items will appear here -->
+            <div class="loading-message">Loading categories...</div>
+          </div>
+        </section>
+
+        <section class="option-section">
           <h2>Reset Progress</h2>
           <p class="description">
             Clear all solved problems and start fresh. This action cannot be
@@ -102,7 +138,7 @@
       </footer>
     </div>
 
-    <script src="options.js"></script>
+    <script type="module" src="options.js"></script>
   </body>
 </html>
 

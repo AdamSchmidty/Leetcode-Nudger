@@ -90,21 +90,59 @@ If you've solved problems outside the extension or want to force a sync:
 2. Click **"🔄 Refresh Status"**
 3. The extension will query LeetCode for your latest progress
 
-## File Structure
+## Architecture
+
+Leetcode Buddy uses a modular architecture with ES6 modules for better maintainability and testability:
+
+### Background Script (5 modules)
+- `src/background/index.js` - Main entry point & lifecycle management
+- `src/background/storage.js` - Chrome storage operations
+- `src/background/problemLogic.js` - Problem set management & progress calculation
+- `src/background/redirects.js` - Redirect rules & bypass functionality
+- `src/background/messageHandler.js` - Message routing & handlers
+
+### Content Script (4 modules)
+- `src/content/index.js` - Main entry point & DOM observation
+- `src/content/api.js` - LeetCode API layer
+- `src/content/detector.js` - Problem solve detection logic
+- `src/content/ui.js` - Celebrations & notifications
+
+### Shared
+- `src/shared/constants.js` - Shared constants across modules
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed technical documentation.
+
+## Project Structure
 
 ```
 leetcodeForcer/
 ├── manifest.json           # Extension configuration
-├── background.js           # Service worker (redirect logic)
-├── content.js              # LeetCode page monitor
-├── popup.html              # Extension popup UI
-├── popup.js                # Popup functionality
-├── popup.css               # Popup styling
-├── neetcode250.json        # Ordered list of 250 problems
-└── icons/
-    ├── icon16.png
-    ├── icon48.png
-    └── icon128.png
+├── src/
+│   ├── background/         # Background service worker modules
+│   │   ├── index.js
+│   │   ├── storage.js
+│   │   ├── problemLogic.js
+│   │   ├── redirects.js
+│   │   └── messageHandler.js
+│   ├── content/            # Content script modules
+│   │   ├── index.js
+│   │   ├── api.js
+│   │   ├── detector.js
+│   │   └── ui.js
+│   ├── shared/             # Shared constants
+│   │   └── constants.js
+│   └── assets/             # Icons, data, styles
+│       ├── icons/
+│       ├── data/
+│       └── styles/
+├── tests/                  # Unit and integration tests
+│   ├── background/
+│   ├── content/
+│   └── integration/
+├── docs/                   # Documentation
+├── popup.html/js/css       # Extension popup
+├── options.html/js/css     # Extension options
+└── package.json            # Node dependencies
 ```
 
 ## Technical Details
@@ -161,10 +199,10 @@ The extension requires:
 
 ### Add More Whitelisted Sites
 
-Edit `background.js` line 5:
+Edit `src/shared/constants.js`:
 
 ```javascript
-const WHITELIST = [
+export const WHITELIST = [
   "leetcode.com",
   "neetcode.io",
   "chatgpt.com",
@@ -174,20 +212,52 @@ const WHITELIST = [
 
 ### Change Bypass Duration
 
-Edit `background.js` lines 6-7:
+Edit `src/shared/constants.js`:
 
 ```javascript
-const BYPASS_DURATION_MS = 15 * 60 * 1000; // 15 minutes
-const COOLDOWN_DURATION_MS = 60 * 60 * 1000; // 60 minutes
+export const BYPASS_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+export const COOLDOWN_DURATION_MS = 60 * 60 * 1000; // 60 minutes
 ```
 
 ### Update Problem List
 
-Replace `neetcode250.json` with your custom problem list (array of LeetCode slugs in order).
+Replace `src/assets/data/neetcode250.json` with your custom problem list organized by categories.
 
 ## Development
 
-### Testing
+### Setup
+
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Load extension in Chrome (Developer Mode)
+4. Make your changes
+
+### Running Tests
+
+The project includes comprehensive unit and integration tests:
+
+```bash
+# Run all tests
+npm test
+
+# Watch mode for development
+npm run test:watch
+
+# Generate coverage report
+npm run test:coverage
+```
+
+**Test Coverage Goals:**
+- 80%+ line coverage
+- 80%+ branch coverage
+- 80%+ function coverage
+
+See [docs/TESTING.md](docs/TESTING.md) for detailed testing guide.
+
+### Manual Testing
 
 1. Make changes to the source files
 2. Go to `chrome://extensions/`
@@ -199,6 +269,10 @@ Replace `neetcode250.json` with your custom problem list (array of LeetCode slug
 - **Background Script**: `chrome://extensions/` → Click "service worker" under the extension
 - **Content Script**: Open DevTools on any LeetCode problem page
 - **Popup**: Right-click the extension icon → "Inspect popup"
+
+### Contributing
+
+See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for development guidelines and best practices.
 
 ## License
 

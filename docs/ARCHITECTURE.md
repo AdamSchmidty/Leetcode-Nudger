@@ -27,40 +27,71 @@ Leetcode Buddy is a Chrome Extension (Manifest V3) that helps enforce sequential
 
 ## System Architecture
 
+### High-Level Overview
+
 ```mermaid
 graph TB
     subgraph browser[Chrome Browser]
-        popup[Popup UI<br/>popup.js]
-        background[Background Service Worker<br/>background.js]
-        content[Content Script<br/>content.js]
+        popup[Popup UI]
+        options[Options Page]
+        
+        subgraph background[Background Service Worker]
+            bgIndex[index.js<br/>Entry Point]
+            storage[storage.js<br/>Storage Layer]
+            problemLogic[problemLogic.js<br/>Problem Management]
+            redirects[redirects.js<br/>Redirect Rules]
+            messageHandler[messageHandler.js<br/>Message Router]
+        end
+        
+        subgraph content[Content Script]
+            contentIndex[index.js<br/>Entry Point]
+            api[api.js<br/>LeetCode API]
+            detector[detector.js<br/>Detection Logic]
+            ui[ui.js<br/>UI Feedback]
+        end
+        
+        subgraph shared[Shared Modules]
+            constants[constants.js<br/>Shared Constants]
+        end
         
         subgraph chromeAPIs[Chrome APIs]
-            storage[storage]
+            storageAPI[storage]
             dnr[declarativeNetRequest]
             runtime[runtime]
         end
         
-        popup <-->|Messages| background
-        content -->|Messages| background
-        background --> storage
-        background --> dnr
-        background --> runtime
-        popup --> runtime
-        content --> runtime
+        popup <-->|Messages| messageHandler
+        options <-->|Messages| messageHandler
+        contentIndex -->|Messages| messageHandler
+        
+        bgIndex --> storage
+        bgIndex --> problemLogic
+        bgIndex --> redirects
+        messageHandler --> storage
+        messageHandler --> problemLogic
+        messageHandler --> redirects
+        
+        contentIndex --> api
+        contentIndex --> detector
+        detector --> api
+        detector --> ui
+        
+        storage --> storageAPI
+        redirects --> dnr
+        redirects --> storageAPI
+        
+        background --> constants
+        content --> constants
     end
     
     subgraph external[External Services]
         graphQL[LeetCode GraphQL API]
         problemsAPI[LeetCode Problems API]
-        neetcode[neetcode.io]
-        chatgpt[chatgpt.com]
     end
     
-    background --> graphQL
-    background --> problemsAPI
-    content --> graphQL
-    browser --> neetcode
-    browser --> chatgpt
+    api --> graphQL
+    problemLogic --> problemsAPI
+    browser --> external
 ```
 
 ## Component Breakdown
@@ -79,25 +110,53 @@ The manifest defines the extension's structure and permissions:
 - **Content Scripts**: Injected into `https://leetcode.com/problems/*` pages
 - **Action**: Defines the popup UI and extension icons
 
-### 2. Background Service Worker (`background.js`)
+### 2. Background Service Worker (Modular)
 
-The service worker is the core of the extension. It runs in the background and handles:
+The background service worker is split into 5 focused modules:
 
-#### Key Responsibilities:
+#### `src/background/index.js` - Entry Point
 
-1. **Problem List Management**
-   - Loads `neetcode250.json` on initialization
-   - Maintains in-memory cache of problem slugs
-   - Tracks current problem index
+The main entry point that orchestrates initialization and lifecycle:
+
+- Sets up event listeners (`onInstalled`, `onStartup`)
+- Initializes problem set and aliases on startup
+- Runs periodic checks (daily reset, redirect restoration)
+- Coordinates between other modules
+
+#### `src/background/storage.js` - Storage Layer
+
+Handles all Chrome storage operations:
+
+- **State Management**: `getState()`, `saveState()`
+- **Daily Solve**: `getDailySolveState()`, `markDailySolve()`, `clearDailySolve()`
+- **Bypass**: `getBypassState()`, `setBypassState()`, `clearBypass()`
+- Abstracts `chrome.storage.sync` and `chrome.storage.local`
+
+#### `src/background/problemLogic.js` - Problem Management
+
+Manages problem sets, aliases, and progress:
+
+1. **Problem Set Loading**
+   - Loads `src/assets/data/neetcode250.json`
+   - Caches problem set in memory
+   - Organized by categories (18 categories)
 
 2. **LeetCode API Integration**
-   - Fetches all problem statuses from `https://leetcode.com/api/problems/all/`
-   - Queries individual problem status via GraphQL
-   - Builds a status map (slug → "ac" | null)
+   - Fetches all problem statuses: `fetchAllProblemStatuses()`
+   - Builds status map (slug → "ac" | null)
 
 3. **Next Problem Computation**
-   - Iterates through the ordered problem list
-   - Finds the first problem with status !== "ac"
+   - `computeNextProblem()`: Finds next unsolved problem
+   - Iterates through categories and problems in order
+   - Returns null when all problems solved
+
+4. **Progress Calculation**
+   - `computeCategoryProgress()`: Per-category progress
+   - `getAllCategoryProgress()`: Overall progress across all categories
+
+5. **Alias Resolution**
+   - Loads `src/assets/data/problemAliases.json`
+   - Maps alternative problem names to canonical slugs
    - Updates storage with current index and solved problems set
 
 4. **Redirect Rule Management**

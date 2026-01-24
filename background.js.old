@@ -1,9 +1,30 @@
-// Leetcode Buddy - Background Service Worker with Category Support and Daily Solve
+// ============================================================================
+// LEETCODE BUDDY - BACKGROUND SERVICE WORKER
+// ============================================================================
+// Main background script for the Leetcode Buddy Chrome extension.
+// Manages problem progression, redirect rules, daily solve tracking, and
+// communication between content scripts and popup/options pages.
+// ============================================================================
 
-const WHITELIST = ["leetcode.com", "neetcode.io", "chatgpt.com"];
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+const WHITELIST = [
+  "leetcode.com",
+  "neetcode.io",
+  "chatgpt.com",
+  "accounts.google.com",     // Google OAuth
+  "github.com",              // GitHub OAuth
+  "www.linkedin.com"         // LinkedIn OAuth
+];
 const REDIRECT_RULE_ID = 1000;
 const BYPASS_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 const COOLDOWN_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+
+// ============================================================================
+// STATE VARIABLES
+// ============================================================================
 
 let problemSet = null; // Loaded from neetcode250.json
 let problemAliases = {}; // Loaded from problemAliases.json
@@ -11,12 +32,19 @@ let currentProblemSlug = null;
 let currentCategoryIndex = 0;
 let currentProblemIndex = 0;
 
-// Load the problem set JSON
+// ============================================================================
+// DATA LOADING FUNCTIONS
+// ============================================================================
+
+/**
+ * Load the problem set JSON from assets
+ * @returns {Promise<Object|null>} The problem set object or null on error
+ */
 async function loadProblemSet() {
   if (problemSet) return problemSet;
   
   try {
-    const response = await fetch(chrome.runtime.getURL("neetcode250.json"));
+    const response = await fetch(chrome.runtime.getURL("src/assets/data/neetcode250.json"));
     problemSet = await response.json();
     return problemSet;
   } catch (error) {
@@ -25,10 +53,13 @@ async function loadProblemSet() {
   }
 }
 
-// Load problem aliases
+/**
+ * Load problem aliases mapping from assets
+ * @returns {Promise<void>}
+ */
 async function loadAliases() {
   try {
-    const response = await fetch(chrome.runtime.getURL("problemAliases.json"));
+    const response = await fetch(chrome.runtime.getURL("src/assets/data/problemAliases.json"));
     problemAliases = await response.json();
     return problemAliases;
   } catch (error) {
@@ -42,7 +73,10 @@ function resolveAlias(slug) {
   return problemAliases[slug] || slug;
 }
 
-// Get current state from storage
+/**
+ * Get current state from chrome.storage.sync
+ * @returns {Promise<Object>} State object with currentCategoryIndex, currentProblemIndex, and solvedProblems Set
+ */
 async function getState() {
   const result = await chrome.storage.sync.get([
     "solvedProblems",
@@ -67,7 +101,14 @@ async function saveState(categoryIndex, problemIndex, solvedProblems) {
   });
 }
 
-// Get daily solve state
+// ============================================================================
+// DAILY SOLVE TRACKING
+// ============================================================================
+
+/**
+ * Get daily solve state from chrome.storage.local
+ * @returns {Promise<Object>} Object with solvedToday, lastSolveDate, lastSolveTimestamp
+ */
 async function getDailySolveState() {
   const result = await chrome.storage.local.get([
     "dailySolveDate",
@@ -84,23 +125,31 @@ async function getDailySolveState() {
   };
 }
 
-// Mark daily solve
-async function markDailySolve() {
+/**
+ * Mark daily solve and unblock all websites until midnight
+ * @param {string} problemSlug - The slug of the problem that was solved
+ * @returns {Promise<void>}
+ */
+async function markDailySolve(problemSlug) {
   const now = Date.now();
   const today = new Date().toISOString().split("T")[0];
   
   await chrome.storage.local.set({
     dailySolveDate: today,
     dailySolveTimestamp: now,
+    dailySolveProblem: problemSlug, // Track which problem counted
   });
   
   // Remove redirect rule - unblock all websites
   await removeRedirectRule();
   
-  console.log("Daily problem solved! Websites unblocked until midnight.");
+  console.log(`Daily problem solved (${problemSlug})! Websites unblocked until midnight.`);
 }
 
-// Check if day has changed and reset daily solve
+/**
+ * Check if day has changed and reset daily solve status
+ * @returns {Promise<void>}
+ */
 async function checkDailyReset() {
   const dailyState = await getDailySolveState();
   const today = new Date().toISOString().split("T")[0];
@@ -110,7 +159,8 @@ async function checkDailyReset() {
     console.log("New day detected, resetting daily solve status");
     await chrome.storage.local.remove([
       "dailySolveDate", 
-      "dailySolveTimestamp", 
+      "dailySolveTimestamp",
+      "dailySolveProblem",
       "celebrationShownDate"
     ]);
     await installRedirectRule();
@@ -301,7 +351,14 @@ async function getAllCategoryProgress() {
   return categoryProgress;
 }
 
-// Install or update the redirect rule
+// ============================================================================
+// REDIRECT RULE MANAGEMENT
+// ============================================================================
+
+/**
+ * Install or update the declarativeNetRequest redirect rule
+ * @returns {Promise<void>}
+ */
 async function installRedirectRule() {
   // Check if daily solve is complete
   const dailyState = await getDailySolveState();
@@ -355,7 +412,10 @@ async function installRedirectRule() {
   }
 }
 
-// Remove the redirect rule
+/**
+ * Remove the declarativeNetRequest redirect rule
+ * @returns {Promise<void>}
+ */
 async function removeRedirectRule() {
   try {
     await chrome.declarativeNetRequest.updateDynamicRules({
@@ -367,6 +427,10 @@ async function removeRedirectRule() {
     console.error("Failed to remove redirect rule:", error);
   }
 }
+
+// ============================================================================
+// INITIALIZATION AND LIFECYCLE
+// ============================================================================
 
 // Check and restore redirect after bypass expires or daily reset
 async function checkAndRestoreRedirect() {
@@ -407,18 +471,59 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     try {
       if (message.type === "PROBLEM_SOLVED") {
         console.log("Problem solved:", message.slug);
+        
+        // Validate that the problem was solved today
+        let shouldMarkDailySolve = true;
+        
+        if (message.timestamp && message.verifiedToday) {
+          // Timestamp provided and verified by content script
+          const submissionDate = new Date(parseInt(message.timestamp) * 1000);
+          const today = new Date();
+          
+          // Double-check the date is today (defense in depth)
+          const isToday = (
+            submissionDate.getFullYear() === today.getFullYear() &&
+            submissionDate.getMonth() === today.getMonth() &&
+            submissionDate.getDate() === today.getDate()
+          );
+          
+          if (isToday) {
+            console.log("✓ Verified: Problem solved today with timestamp:", new Date(parseInt(message.timestamp) * 1000).toLocaleString());
+          } else {
+            console.log("✗ Timestamp verification failed: Problem was not solved today");
+            shouldMarkDailySolve = false;
+          }
+        } else if (message.verifiedToday === false) {
+          // Content script explicitly marked as not solved today
+          console.log("✗ Content script verified problem was NOT solved today");
+          shouldMarkDailySolve = false;
+        } else {
+          // No timestamp provided, fallback behavior (allow it)
+          console.log("⚠ No timestamp verification, allowing solve (fallback mode)");
+        }
 
-        // Mark daily solve
-        await markDailySolve();
+        if (shouldMarkDailySolve) {
+          // Mark daily solve with problem slug
+          await markDailySolve(message.slug);
 
-        // Recompute next problem for tomorrow
-        const nextProblem = await computeNextProblem();
+          // Recompute next problem for tomorrow
+          const nextProblem = await computeNextProblem();
 
-        sendResponse({
-          success: true,
-          nextProblem: nextProblem,
-          dailySolved: true,
-        });
+          sendResponse({
+            success: true,
+            nextProblem: nextProblem,
+            dailySolved: true,
+          });
+        } else {
+          // Problem was solved in the past, don't mark as daily solve
+          console.log("Not marking as daily solve - problem solved in the past");
+          
+          sendResponse({
+            success: true,
+            dailySolved: false,
+            message: "Problem was solved in the past, not counting as today's solve",
+          });
+        }
       } else if (message.type === "GET_STATUS") {
         await loadProblemSet();
         const state = await getState();
@@ -446,6 +551,25 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           bypass: bypassState,
           categoryProgress: categoryProgress,
         });
+      } else if (message.type === "GET_DETAILED_PROGRESS") {
+        await loadProblemSet();
+        const state = await getState();
+        
+        const categories = problemSet.categories.map((cat, catIdx) => ({
+          name: cat.name,
+          total: cat.problems.length,
+          solved: cat.problems.filter(p => state.solvedProblems.has(p.slug)).length,
+          problems: cat.problems.map((p, probIdx) => ({
+            slug: p.slug,
+            title: p.title,
+            difficulty: p.difficulty,
+            solved: state.solvedProblems.has(p.slug),
+            isCurrent: catIdx === state.currentCategoryIndex && 
+                       probIdx === state.currentProblemIndex
+          }))
+        }));
+        
+        sendResponse({ success: true, categories });
       } else if (message.type === "ACTIVATE_BYPASS") {
         const result = await activateBypass();
         sendResponse(result);
