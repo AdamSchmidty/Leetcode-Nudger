@@ -5,15 +5,15 @@
 // Orchestrates detection, verification, and celebration modules
 // ============================================================================
 
-import { loadAliases } from './api.js';
-import { checkAndNotify } from './detector.js';
-
 console.log("Leetcode Buddy - Content Script Loading");
 
 // State
 let lastPathname = window.location.pathname;
 let checkTimeout = null;
 let hasCheckedOnLoad = false;
+
+// Store imported functions
+let checkAndNotify = null;
 
 // Watch for DOM changes that indicate a submission result
 const observer = new MutationObserver((mutations) => {
@@ -34,7 +34,9 @@ const observer = new MutationObserver((mutations) => {
 
       // Check status after a short delay to let LeetCode update the backend
       checkTimeout = setTimeout(() => {
-        checkAndNotify();
+        if (checkAndNotify) {
+          checkAndNotify();
+        }
       }, 2000);
 
       break;
@@ -46,6 +48,15 @@ const observer = new MutationObserver((mutations) => {
 (async function initializeLeetcodeBuddy() {
   try {
     console.log("🤝 Leetcode Buddy initializing...");
+    
+    // Use dynamic imports - files must be in web_accessible_resources
+    // Chrome extensions support dynamic imports for ES modules in content scripts
+    const apiModule = await import(chrome.runtime.getURL('src/content/api.js'));
+    const detectorModule = await import(chrome.runtime.getURL('src/content/detector.js'));
+    
+    // Extract functions
+    const { loadAliases } = apiModule;
+    checkAndNotify = detectorModule.checkAndNotify;
     
     // Load problem aliases
     await loadAliases();
@@ -66,7 +77,7 @@ const observer = new MutationObserver((mutations) => {
 
           // Check after a delay to let the page load
           setTimeout(() => {
-            if (!hasCheckedOnLoad) {
+            if (!hasCheckedOnLoad && checkAndNotify) {
               checkAndNotify();
               hasCheckedOnLoad = true;
             }
@@ -80,7 +91,7 @@ const observer = new MutationObserver((mutations) => {
     // Initial check when content script loads
     setTimeout(() => {
       try {
-        if (!hasCheckedOnLoad) {
+        if (!hasCheckedOnLoad && checkAndNotify) {
           console.log("Initial problem status check...");
           checkAndNotify();
           hasCheckedOnLoad = true;
@@ -93,7 +104,7 @@ const observer = new MutationObserver((mutations) => {
     // Listen for visibility changes (tab becomes active)
     document.addEventListener("visibilitychange", () => {
       try {
-        if (!document.hidden) {
+        if (!document.hidden && checkAndNotify) {
           console.log("Tab became visible, checking status...");
           setTimeout(checkAndNotify, 1000);
         }

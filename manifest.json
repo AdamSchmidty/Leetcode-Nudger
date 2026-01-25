@@ -50,7 +50,11 @@
         "src/assets/data/blind75.json",
         "src/assets/data/neetcode150.json",
         "src/assets/data/neetcodeAll.json",
-        "src/assets/data/problemAliases.json"
+        "src/assets/data/problemAliases.json",
+        "src/content/api.js",
+        "src/content/detector.js",
+        "src/content/ui.js",
+        "src/shared/constants.js"
       ],
       "matches": [
         "<all_urls>"
