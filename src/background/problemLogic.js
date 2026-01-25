@@ -4,11 +4,12 @@
 // Handles problem set loading, progression tracking, and statistics
 // ============================================================================
 
-import { PROBLEM_SET_PATH, ALIASES_PATH } from '../shared/constants.js';
-import { getState, saveState } from './storage.js';
+import { getProblemSetPath, ALIASES_PATH } from '../shared/constants.js';
+import { getState, saveState, getPositionForSet } from './storage.js';
 
 // In-memory caches
 let problemSet = null;
+let currentProblemSetId = null;
 let problemAliases = {};
 
 // Current problem tracking
@@ -22,19 +23,37 @@ export let currentProblemIndex = 0;
  */
 export function clearCaches() {
   problemSet = null;
+  currentProblemSetId = null;
   problemAliases = {};
 }
 
 /**
  * Load the problem set JSON from assets
+ * @param {string} [problemSetId] - Optional problem set ID. If not provided, loads from selectedProblemSet in storage
  * @returns {Promise<Object|null>} The problem set object or null on error
  */
-export async function loadProblemSet() {
-  if (problemSet) return problemSet;
+export async function loadProblemSet(problemSetId = null) {
+  // Get problem set ID if not provided
+  if (!problemSetId) {
+    const state = await chrome.storage.sync.get(["selectedProblemSet"]);
+    problemSetId = state.selectedProblemSet || "neetcode250";
+  }
+  
+  // Return cached set if it's the same
+  if (problemSet && currentProblemSetId === problemSetId) {
+    return problemSet;
+  }
+  
+  // Clear cache if switching sets
+  if (currentProblemSetId && currentProblemSetId !== problemSetId) {
+    problemSet = null;
+  }
   
   try {
-    const response = await fetch(chrome.runtime.getURL(PROBLEM_SET_PATH));
+    const path = getProblemSetPath(problemSetId);
+    const response = await fetch(chrome.runtime.getURL(path));
     problemSet = await response.json();
+    currentProblemSetId = problemSetId;
     return problemSet;
   } catch (error) {
     console.error("Failed to load problem set:", error);
@@ -190,7 +209,12 @@ export function computeCategoryProgress(category, solvedProblems) {
  * @returns {Promise<Object|null>} Next problem info or null if error
  */
 export async function computeNextProblem(syncAllSolved = false) {
-  await loadProblemSet();
+  // Get selected problem set
+  const state = await getState();
+  const selectedProblemSet = state.selectedProblemSet || "neetcode250";
+  
+  // Load the correct problem set
+  await loadProblemSet(selectedProblemSet);
   await loadAliases();
   
   if (!problemSet || !problemSet.categories) {
@@ -198,11 +222,15 @@ export async function computeNextProblem(syncAllSolved = false) {
     return null;
   }
 
-  const state = await getState();
   const statusMap = await fetchAllProblemStatuses();
   
-  // Start with existing solved problems from state
+  // Start with existing solved problems from state (shared across all sets)
   const solvedProblems = new Set(state.solvedProblems || []);
+  
+  // Get position state for the selected set (defaults to 0,0 if not set)
+  const position = await getPositionForSet(selectedProblemSet);
+  let startCategoryIndex = position.categoryIndex;
+  let startProblemIndex = position.problemIndex;
   
   // First pass: Mark ALL solved problems (only on first install)
   // This ensures all solved problems are tracked when extension is first installed
@@ -227,8 +255,8 @@ export async function computeNextProblem(syncAllSolved = false) {
   const settings = await chrome.storage.sync.get(['sortByDifficulty']);
   const sortByDifficulty = settings.sortByDifficulty === true;
 
-  // Second pass: Find first unsolved problem in order
-  for (let catIdx = 0; catIdx < problemSet.categories.length; catIdx++) {
+  // Second pass: Find first unsolved problem in order, starting from saved position
+  for (let catIdx = startCategoryIndex; catIdx < problemSet.categories.length; catIdx++) {
     const category = problemSet.categories[catIdx];
     
     // Get problems, sorted if needed
@@ -237,7 +265,10 @@ export async function computeNextProblem(syncAllSolved = false) {
       problemsToCheck = sortProblemsByDifficulty(category.problems);
     }
     
-    for (let probIdx = 0; probIdx < problemsToCheck.length; probIdx++) {
+    // Start from saved problem index if we're on the starting category
+    const startIdx = (catIdx === startCategoryIndex) ? startProblemIndex : 0;
+    
+    for (let probIdx = startIdx; probIdx < problemsToCheck.length; probIdx++) {
       const problem = problemsToCheck[probIdx];
       
       if (!solvedProblems.has(problem.slug)) {
@@ -252,18 +283,26 @@ export async function computeNextProblem(syncAllSolved = false) {
         currentProblemIndex = originalProbIdx;
         currentProblemSlug = problem.slug;
         
-        await saveState(catIdx, originalProbIdx, solvedProblems);
+        // Save position for the selected set only
+        await saveState(catIdx, originalProbIdx, solvedProblems, selectedProblemSet);
+        
+        const totalProblems = problemSet.categories.reduce(
+          (sum, cat) => sum + cat.problems.length,
+          0
+        );
+        
+        // Count only solved problems that are in the current problem set
+        const solvedCount = problemSet.categories.reduce((count, cat) => {
+          return count + cat.problems.filter(p => solvedProblems.has(p.slug)).length;
+        }, 0);
         
         return {
           categoryIndex: catIdx,
           categoryName: category.name,
           problemIndex: originalProbIdx,
           problem: problem,
-          totalProblems: problemSet.categories.reduce(
-            (sum, cat) => sum + cat.problems.length,
-            0
-          ),
-          solvedCount: solvedProblems.size,
+          totalProblems: totalProblems,
+          solvedCount: solvedCount,
           categoryProgress: computeCategoryProgress(category, solvedProblems),
         };
       }
@@ -276,14 +315,19 @@ export async function computeNextProblem(syncAllSolved = false) {
     0
   );
   
-  if (solvedProblems.size === totalProblems) {
+  // Count only solved problems that are in the current problem set
+  const solvedCount = problemSet.categories.reduce((count, cat) => {
+    return count + cat.problems.filter(p => solvedProblems.has(p.slug)).length;
+  }, 0);
+  
+  if (solvedCount === totalProblems) {
     console.log("All problems solved!");
     currentCategoryIndex = problemSet.categories.length - 1;
     currentProblemIndex = problemSet.categories[currentCategoryIndex].problems.length - 1;
     const lastProblem = problemSet.categories[currentCategoryIndex].problems[currentProblemIndex];
     currentProblemSlug = lastProblem.slug;
     
-    await saveState(currentCategoryIndex, currentProblemIndex, solvedProblems);
+    await saveState(currentCategoryIndex, currentProblemIndex, solvedProblems, selectedProblemSet);
     
     return {
       categoryIndex: currentCategoryIndex,
@@ -291,7 +335,7 @@ export async function computeNextProblem(syncAllSolved = false) {
       problemIndex: currentProblemIndex,
       problem: lastProblem,
       totalProblems: totalProblems,
-      solvedCount: solvedProblems.size,
+      solvedCount: solvedCount,
       allSolved: true,
     };
   }
@@ -304,10 +348,12 @@ export async function computeNextProblem(syncAllSolved = false) {
  * @returns {Promise<Array>} Array of category progress objects
  */
 export async function getAllCategoryProgress() {
-  await loadProblemSet();
+  const state = await getState();
+  const selectedProblemSet = state.selectedProblemSet || "neetcode250";
+  
+  await loadProblemSet(selectedProblemSet);
   if (!problemSet) return [];
 
-  const state = await getState();
   const categoryProgress = [];
 
   for (const category of problemSet.categories) {

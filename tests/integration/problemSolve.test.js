@@ -323,8 +323,8 @@ describe('Problem Solving Integration', () => {
         sendResponse
       );
 
-      // Verify all storage was cleared
-      expect(chrome.storage.sync.clear).toHaveBeenCalled();
+      // Reset should clear solved problems and reset positions, not clear all storage
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith({ solvedProblems: [] });
       expect(chrome.storage.local.clear).toHaveBeenCalled();
 
       // Verify response indicates success

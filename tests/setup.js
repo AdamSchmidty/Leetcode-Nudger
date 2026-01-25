@@ -4,7 +4,8 @@ global.chrome = {
     sync: {
       get: jest.fn(),
       set: jest.fn(),
-      clear: jest.fn()
+      clear: jest.fn(),
+      remove: jest.fn()
     },
     local: {
       get: jest.fn(),

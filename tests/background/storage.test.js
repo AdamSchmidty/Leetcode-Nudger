@@ -22,10 +22,11 @@ describe('storage.js', () => {
       expect(state.selectedProblemSet).toBe('neetcode250');
     });
 
-    it('should return state from storage', async () => {
+    it('should return state from storage with positions', async () => {
       chrome.storage.sync.get.mockResolvedValue({
-        currentCategoryIndex: 2,
-        currentProblemIndex: 5,
+        positions: {
+          neetcode250: { categoryIndex: 2, problemIndex: 5 }
+        },
         solvedProblems: ['two-sum', 'valid-anagram'],
         selectedProblemSet: 'neetcode250'
       });
@@ -39,8 +40,36 @@ describe('storage.js', () => {
       expect(state.solvedProblems.has('valid-anagram')).toBe(true);
     });
 
+    it('should migrate old format to new format', async () => {
+      chrome.storage.sync.get
+        .mockResolvedValueOnce({
+          currentCategoryIndex: 3,
+          currentProblemIndex: 7,
+          solvedProblems: ['problem1'],
+          selectedProblemSet: 'neetcode250'
+        })
+        .mockResolvedValueOnce({
+          positions: {
+            neetcode250: { categoryIndex: 3, problemIndex: 7 }
+          },
+          solvedProblems: ['problem1'],
+          selectedProblemSet: 'neetcode250'
+        });
+      chrome.storage.sync.set.mockResolvedValue();
+      chrome.storage.sync.remove.mockResolvedValue();
+      
+      const state = await storage.getState();
+      
+      // Should migrate and return position from migrated data
+      expect(chrome.storage.sync.set).toHaveBeenCalled();
+      expect(chrome.storage.sync.remove).toHaveBeenCalledWith(['currentCategoryIndex', 'currentProblemIndex']);
+      expect(state.currentCategoryIndex).toBe(3);
+      expect(state.currentProblemIndex).toBe(7);
+    });
+
     it('should convert solvedProblems array to Set', async () => {
       chrome.storage.sync.get.mockResolvedValue({
+        positions: {},
         solvedProblems: ['problem1', 'problem2', 'problem3']
       });
       
@@ -52,28 +81,119 @@ describe('storage.js', () => {
   });
 
   describe('saveState', () => {
-    it('should save state to chrome.storage.sync', async () => {
+    it('should save state to chrome.storage.sync with per-set positions', async () => {
       chrome.storage.sync.set.mockResolvedValue();
+      chrome.storage.sync.get.mockResolvedValue({ selectedProblemSet: 'neetcode250' });
       const solvedProblems = new Set(['two-sum', 'valid-anagram']);
       
       await storage.saveState(1, 3, solvedProblems);
       
-      expect(chrome.storage.sync.set).toHaveBeenCalledWith({
-        currentCategoryIndex: 1,
-        currentProblemIndex: 3,
-        solvedProblems: ['two-sum', 'valid-anagram']
-      });
+      // Should call set twice: once for position, once for solved problems
+      expect(chrome.storage.sync.set).toHaveBeenCalledTimes(2);
+      // Check that solved problems are saved
+      const solvedProblemsCall = chrome.storage.sync.set.mock.calls.find(call => 
+        call[0].solvedProblems
+      );
+      expect(solvedProblemsCall[0].solvedProblems).toEqual(['two-sum', 'valid-anagram']);
+    });
+
+    it('should save position for specific problem set', async () => {
+      chrome.storage.sync.set.mockResolvedValue();
+      chrome.storage.sync.get.mockResolvedValue({ selectedProblemSet: 'blind75' });
+      const solvedProblems = new Set(['a', 'b', 'c']);
+      
+      await storage.saveState(2, 5, solvedProblems, 'blind75');
+      
+      // Should save position for blind75
+      const positionCall = chrome.storage.sync.set.mock.calls.find(call => 
+        call[0].positions && call[0].positions.blind75
+      );
+      expect(positionCall[0].positions.blind75).toEqual({ categoryIndex: 2, problemIndex: 5 });
     });
 
     it('should convert Set to array for storage', async () => {
       chrome.storage.sync.set.mockResolvedValue();
+      chrome.storage.sync.get.mockResolvedValue({ selectedProblemSet: 'neetcode250' });
       const solvedProblems = new Set(['a', 'b', 'c']);
       
       await storage.saveState(0, 0, solvedProblems);
       
-      const savedData = chrome.storage.sync.set.mock.calls[0][0];
-      expect(Array.isArray(savedData.solvedProblems)).toBe(true);
-      expect(savedData.solvedProblems.length).toBe(3);
+      const solvedProblemsCall = chrome.storage.sync.set.mock.calls.find(call => 
+        call[0].solvedProblems
+      );
+      expect(Array.isArray(solvedProblemsCall[0].solvedProblems)).toBe(true);
+      expect(solvedProblemsCall[0].solvedProblems.length).toBe(3);
+    });
+  });
+
+  describe('getPositionForSet', () => {
+    it('should return default position 0,0 when set not found', async () => {
+      chrome.storage.sync.get.mockResolvedValue({ positions: {} });
+      
+      const position = await storage.getPositionForSet('blind75');
+      
+      expect(position.categoryIndex).toBe(0);
+      expect(position.problemIndex).toBe(0);
+    });
+
+    it('should return position for existing set', async () => {
+      chrome.storage.sync.get.mockResolvedValue({
+        positions: {
+          blind75: { categoryIndex: 2, problemIndex: 5 }
+        }
+      });
+      
+      const position = await storage.getPositionForSet('blind75');
+      
+      expect(position.categoryIndex).toBe(2);
+      expect(position.problemIndex).toBe(5);
+    });
+  });
+
+  describe('savePositionForSet', () => {
+    it('should save position for a specific set', async () => {
+      chrome.storage.sync.get.mockResolvedValue({ positions: {} });
+      chrome.storage.sync.set.mockResolvedValue();
+      
+      await storage.savePositionForSet('neetcode150', 3, 7);
+      
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        positions: {
+          neetcode150: { categoryIndex: 3, problemIndex: 7 }
+        }
+      });
+    });
+
+    it('should preserve existing positions when saving new one', async () => {
+      chrome.storage.sync.get.mockResolvedValue({
+        positions: {
+          blind75: { categoryIndex: 1, problemIndex: 2 }
+        }
+      });
+      chrome.storage.sync.set.mockResolvedValue();
+      
+      await storage.savePositionForSet('neetcode150', 3, 7);
+      
+      const savedPositions = chrome.storage.sync.set.mock.calls[0][0].positions;
+      expect(savedPositions.blind75).toEqual({ categoryIndex: 1, problemIndex: 2 });
+      expect(savedPositions.neetcode150).toEqual({ categoryIndex: 3, problemIndex: 7 });
+    });
+  });
+
+  describe('resetAllPositions', () => {
+    it('should reset all positions to 0,0 for all sets', async () => {
+      chrome.storage.sync.set.mockResolvedValue();
+      
+      await storage.resetAllPositions();
+      
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith({
+        positions: {
+          blind75: { categoryIndex: 0, problemIndex: 0 },
+          neetcode150: { categoryIndex: 0, problemIndex: 0 },
+          neetcode250: { categoryIndex: 0, problemIndex: 0 },
+          neetcodeAll: { categoryIndex: 0, problemIndex: 0 }
+        }
+      });
     });
   });
 

@@ -69,6 +69,7 @@ describe('problemLogic.js', () => {
       // Clear module cache by resetting the internal problemSet variable
       // This is done by ensuring fetch is mocked before each test
       global.fetch.mockClear();
+      chrome.storage.sync.get.mockResolvedValue({ selectedProblemSet: 'neetcode250' });
     });
 
     it('should fetch and cache problem set', async () => {
@@ -85,18 +86,48 @@ describe('problemLogic.js', () => {
       expect(problemSet.categories).toHaveLength(2);
     });
 
-    it('should return cached problem set on subsequent calls', async () => {
+    it('should load specific problem set when ID provided', async () => {
       global.fetch.mockResolvedValue({
         json: jest.fn().mockResolvedValue(mockProblemSet)
       });
       
-      await problemLogic.loadProblemSet();
+      await problemLogic.loadProblemSet('blind75');
+      
+      expect(chrome.runtime.getURL).toHaveBeenCalledWith(
+        expect.stringContaining('blind75.json')
+      );
+    });
+
+    it('should return cached problem set on subsequent calls with same ID', async () => {
+      global.fetch.mockResolvedValue({
+        json: jest.fn().mockResolvedValue(mockProblemSet)
+      });
+      
+      await problemLogic.loadProblemSet('neetcode250');
       global.fetch.mockClear();
       
-      const problemSet = await problemLogic.loadProblemSet();
+      const problemSet = await problemLogic.loadProblemSet('neetcode250');
       
       expect(global.fetch).not.toHaveBeenCalled();
       expect(problemSet).toEqual(mockProblemSet);
+    });
+
+    it('should clear cache and reload when switching problem sets', async () => {
+      global.fetch.mockResolvedValue({
+        json: jest.fn().mockResolvedValue(mockProblemSet)
+      });
+      
+      await problemLogic.loadProblemSet('neetcode250');
+      global.fetch.mockClear();
+      
+      // Switch to different set
+      await problemLogic.loadProblemSet('blind75');
+      
+      // Should have called fetch again for the new set
+      expect(global.fetch).toHaveBeenCalled();
+      expect(chrome.runtime.getURL).toHaveBeenCalledWith(
+        expect.stringContaining('blind75.json')
+      );
     });
 
     it('should return null on fetch error when no cache exists', async () => {
@@ -207,11 +238,15 @@ describe('problemLogic.js', () => {
     });
 
     it('should return first problem when nothing solved', async () => {
-      chrome.storage.sync.get.mockResolvedValue({
-        currentCategoryIndex: 0,
-        currentProblemIndex: 0,
-        solvedProblems: []
-      });
+      chrome.storage.sync.get
+        .mockResolvedValueOnce({
+          positions: {
+            neetcode250: { categoryIndex: 0, problemIndex: 0 }
+          },
+          solvedProblems: [],
+          selectedProblemSet: 'neetcode250'
+        })
+        .mockResolvedValueOnce({ selectedProblemSet: 'neetcode250' });
       
       // Set up mocks for this specific test
       // Mock problem set (loadProblemSet calls fetch)
@@ -248,18 +283,21 @@ describe('problemLogic.js', () => {
       // Verify saveState was called with empty solvedProblems
       expect(chrome.storage.sync.set).toHaveBeenCalled();
       const setCalls = chrome.storage.sync.set.mock.calls;
-      const lastCall = setCalls[setCalls.length - 1];
-      const savedSolvedProblems = lastCall[0].solvedProblems;
-      expect(savedSolvedProblems.length).toBe(0);
+      const solvedProblemsCall = setCalls.find(call => call[0].solvedProblems);
+      expect(solvedProblemsCall[0].solvedProblems.length).toBe(0);
     });
 
     it('should skip solved problems and return next unsolved', async () => {
       // Pre-populate state with solved problems (simulating normal operation after first install)
-      chrome.storage.sync.get.mockResolvedValue({
-        currentCategoryIndex: 0,
-        currentProblemIndex: 0,
-        solvedProblems: ['two-sum', 'valid-anagram']
-      });
+      chrome.storage.sync.get
+        .mockResolvedValueOnce({
+          positions: {
+            neetcode250: { categoryIndex: 0, problemIndex: 0 }
+          },
+          solvedProblems: ['two-sum', 'valid-anagram'],
+          selectedProblemSet: 'neetcode250'
+        })
+        .mockResolvedValueOnce({ selectedProblemSet: 'neetcode250' });
       
       // Set up mocks for this specific test
       // Mock problem set (loadProblemSet calls fetch)
@@ -311,11 +349,15 @@ describe('problemLogic.js', () => {
     });
 
     it('should mark all solved problems even when solved out of order (on first install)', async () => {
-      chrome.storage.sync.get.mockResolvedValue({
-        currentCategoryIndex: 0,
-        currentProblemIndex: 0,
-        solvedProblems: []
-      });
+      chrome.storage.sync.get
+        .mockResolvedValueOnce({
+          positions: {
+            neetcode250: { categoryIndex: 0, problemIndex: 0 }
+          },
+          solvedProblems: [],
+          selectedProblemSet: 'neetcode250'
+        })
+        .mockResolvedValueOnce({ selectedProblemSet: 'neetcode250' });
       
       // Set up mocks for this specific test
       // Mock problem set (loadProblemSet calls fetch)
@@ -369,11 +411,15 @@ describe('problemLogic.js', () => {
 
     it('should not sync all solved problems on normal startup (respects reset)', async () => {
       // Simulate user reset progress - storage is cleared
-      chrome.storage.sync.get.mockResolvedValue({
-        currentCategoryIndex: 0,
-        currentProblemIndex: 0,
-        solvedProblems: []
-      });
+      chrome.storage.sync.get
+        .mockResolvedValueOnce({
+          positions: {
+            neetcode250: { categoryIndex: 0, problemIndex: 0 }
+          },
+          solvedProblems: [],
+          selectedProblemSet: 'neetcode250'
+        })
+        .mockResolvedValueOnce({ selectedProblemSet: 'neetcode250' });
       
       // Set up mocks for this specific test
       // Mock problem set (loadProblemSet calls fetch)
@@ -423,11 +469,15 @@ describe('problemLogic.js', () => {
 
     it('should move to next category when current category complete', async () => {
       // Pre-populate state with all solved problems from first category
-      chrome.storage.sync.get.mockResolvedValue({
-        currentCategoryIndex: 0,
-        currentProblemIndex: 0,
-        solvedProblems: ['two-sum', 'valid-anagram', 'group-anagrams']
-      });
+      chrome.storage.sync.get
+        .mockResolvedValueOnce({
+          positions: {
+            neetcode250: { categoryIndex: 0, problemIndex: 0 }
+          },
+          solvedProblems: ['two-sum', 'valid-anagram', 'group-anagrams'],
+          selectedProblemSet: 'neetcode250'
+        })
+        .mockResolvedValueOnce({ selectedProblemSet: 'neetcode250' });
       
       // Set up mocks for this specific test
       // Mock problem set (loadProblemSet calls fetch)
@@ -485,11 +535,15 @@ describe('problemLogic.js', () => {
       clearCaches();
       
       // Pre-populate state with all solved problems
-      chrome.storage.sync.get.mockResolvedValue({
-        currentCategoryIndex: 0,
-        currentProblemIndex: 0,
-        solvedProblems: ['two-sum', 'valid-anagram', 'group-anagrams', 'valid-palindrome', 'two-sum-ii']
-      });
+      chrome.storage.sync.get
+        .mockResolvedValueOnce({
+          positions: {
+            neetcode250: { categoryIndex: 0, problemIndex: 0 }
+          },
+          solvedProblems: ['two-sum', 'valid-anagram', 'group-anagrams', 'valid-palindrome', 'two-sum-ii'],
+          selectedProblemSet: 'neetcode250'
+        })
+        .mockResolvedValueOnce({ selectedProblemSet: 'neetcode250' });
       
       // Use mockImplementation to match URL and return appropriate response
       global.fetch.mockImplementation((url) => {
@@ -581,9 +635,15 @@ describe('problemLogic.js', () => {
     });
 
     it('should calculate progress for all categories', async () => {
-      chrome.storage.sync.get.mockResolvedValue({
-        solvedProblems: ['two-sum', 'valid-anagram', 'valid-palindrome']
-      });
+      chrome.storage.sync.get
+        .mockResolvedValueOnce({
+          positions: {
+            neetcode250: { categoryIndex: 0, problemIndex: 0 }
+          },
+          solvedProblems: ['two-sum', 'valid-anagram', 'valid-palindrome'],
+          selectedProblemSet: 'neetcode250'
+        })
+        .mockResolvedValueOnce({ selectedProblemSet: 'neetcode250' });
       
       // Mock problem set (getAllCategoryProgress calls loadProblemSet)
       global.fetch.mockResolvedValueOnce({
@@ -602,9 +662,15 @@ describe('problemLogic.js', () => {
     });
 
     it('should include overall progress', async () => {
-      chrome.storage.sync.get.mockResolvedValue({
-        solvedProblems: ['two-sum', 'valid-anagram']
-      });
+      chrome.storage.sync.get
+        .mockResolvedValueOnce({
+          positions: {
+            neetcode250: { categoryIndex: 0, problemIndex: 0 }
+          },
+          solvedProblems: ['two-sum', 'valid-anagram'],
+          selectedProblemSet: 'neetcode250'
+        })
+        .mockResolvedValueOnce({ selectedProblemSet: 'neetcode250' });
       
       // Mock problem set (getAllCategoryProgress calls loadProblemSet)
       global.fetch.mockResolvedValueOnce({

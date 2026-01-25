@@ -131,9 +131,21 @@ async function handleProblemSolved(message) {
  * Returns current problem, progress, and bypass status
  */
 async function handleGetStatus() {
-  await problemLogic.loadProblemSet();
-  const problemSet = problemLogic.getProblemSet();
+  // Get state first to know which problem set to load
   const state = await storage.getState();
+  const selectedProblemSet = state.selectedProblemSet || "neetcode250";
+  
+  // Explicitly load the selected problem set to ensure cache is correct
+  await problemLogic.loadProblemSet(selectedProblemSet);
+  const problemSet = problemLogic.getProblemSet();
+  
+  if (!problemSet || !problemSet.categories) {
+    return {
+      success: false,
+      error: "Problem set not loaded"
+    };
+  }
+  
   const dailyState = await storage.getDailySolveState();
   const bypassState = await storage.getBypassState();
   const categoryProgress = await problemLogic.getAllCategoryProgress();
@@ -146,6 +158,11 @@ async function handleGetStatus() {
     0
   );
 
+  // Count only solved problems that are in the current problem set
+  const solvedCount = problemSet.categories.reduce((count, cat) => {
+    return count + cat.problems.filter(p => state.solvedProblems.has(p.slug)).length;
+  }, 0);
+
   return {
     success: true,
     currentProblem: problem,
@@ -153,7 +170,7 @@ async function handleGetStatus() {
     categoryIndex: state.currentCategoryIndex,
     problemIndex: state.currentProblemIndex,
     totalProblems: totalProblems,
-    solvedCount: state.solvedProblems.size,
+    solvedCount: solvedCount,
     dailySolvedToday: dailyState.solvedToday,
     bypass: bypassState,
     categoryProgress: categoryProgress,
@@ -165,9 +182,20 @@ async function handleGetStatus() {
  * Returns detailed progress for all categories and problems
  */
 async function handleGetDetailedProgress() {
-  await problemLogic.loadProblemSet();
-  const problemSet = problemLogic.getProblemSet();
+  // Get state first to know which problem set to load
   const state = await storage.getState();
+  const selectedProblemSet = state.selectedProblemSet || "neetcode250";
+  
+  // Explicitly load the selected problem set to ensure cache is correct
+  await problemLogic.loadProblemSet(selectedProblemSet);
+  const problemSet = problemLogic.getProblemSet();
+  
+  if (!problemSet || !problemSet.categories) {
+    return {
+      success: false,
+      error: "Problem set not loaded"
+    };
+  }
   
   // Get current problem slug for isCurrent comparison
   const currentCategory = problemSet.categories[state.currentCategoryIndex];
@@ -219,28 +247,32 @@ async function handleRefreshStatus() {
 
 /**
  * Handle RESET_PROGRESS message
- * Clears all progress and resets to first problem
+ * Clears all solved problems and resets all position states to 0,0 for all problem sets
  */
 async function handleResetProgress() {
   console.log("Resetting all progress...");
   
-  // Clear all storage
-  await chrome.storage.sync.clear();
+  // Clear all solved problems
+  await chrome.storage.sync.set({ solvedProblems: [] });
+  
+  // Reset all positions for all problem sets to 0,0
+  await storage.resetAllPositions();
+  
+  // Clear local storage (daily solve, bypass, etc.)
   await chrome.storage.local.clear();
   
-  // Force reload problem set
-  await problemLogic.loadProblemSet();
+  // Force reload problem set for current selection
+  const state = await storage.getState();
+  await problemLogic.loadProblemSet(state.selectedProblemSet);
   const problemSet = problemLogic.getProblemSet();
   
-  // Initialize to first problem with empty solved set
-  const firstProblem = problemSet.categories[0].problems[0];
-  
-  await storage.saveState(0, 0, new Set());
+  if (problemSet && problemSet.categories && problemSet.categories.length > 0) {
+    const firstProblem = problemSet.categories[0].problems[0];
+    console.log("Progress reset complete. Starting from:", firstProblem.slug);
+  }
   
   // Reinstall redirect rule
   await redirects.installRedirectRule();
-  
-  console.log("Progress reset complete. Starting from:", firstProblem.slug);
   
   return { success: true };
 }
