@@ -215,13 +215,13 @@ describe('ui.js', () => {
       });
       
       await ui.showSolvedNotification();
-      const notification = document.querySelector('.leetcode-buddy-notification');
+      const notification = document.getElementById('leetcode-buddy-notification');
       expect(notification).toBeTruthy();
       
       // Check after 7 seconds (6s delay + 0.5s fade)
       await new Promise(resolve => setTimeout(resolve, 7000));
       
-      const removedNotification = document.querySelector('.leetcode-buddy-notification');
+      const removedNotification = document.getElementById('leetcode-buddy-notification');
       expect(removedNotification).toBeFalsy();
     }, 8000);
 
@@ -262,11 +262,11 @@ describe('ui.js', () => {
       await ui.showSolvedNotification();
       await ui.showSolvedNotification();
       
-      // Find notifications by text content
-      const notifications = Array.from(document.querySelectorAll('div')).filter(
-        div => div.textContent?.includes('Amazing! Daily Problem Solved!')
-      );
-      expect(notifications.length).toBeLessThanOrEqual(2); // Allow some overlap during fade
+      // Find notifications by ID (each call creates a new notification with same ID)
+      // The implementation may remove the old one or keep both during animation
+      const notifications = Array.from(document.querySelectorAll('#leetcode-buddy-notification'));
+      // Allow up to 2 since there might be overlap during animation
+      expect(notifications.length).toBeLessThanOrEqual(2);
     });
   });
 });

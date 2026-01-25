@@ -214,7 +214,8 @@ describe('messageHandler.js', () => {
       await messageHandler.handleMessage(message, {}, sendResponse);
       
       const response = sendResponse.mock.calls[0][0];
-      expect(response.dailySolved).toBe(true);
+      // handleGetStatus returns dailySolvedToday, not dailySolved
+      expect(response.dailySolvedToday).toBe(true);
     });
   });
 
@@ -325,7 +326,7 @@ describe('messageHandler.js', () => {
       expect(sendResponse).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
-          totalSolved: expect.any(Number)
+          problem: expect.any(Object)
         })
       );
     });

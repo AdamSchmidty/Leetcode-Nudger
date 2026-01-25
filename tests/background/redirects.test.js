@@ -250,10 +250,9 @@ describe('redirects.js', () => {
     });
 
     it('should reset at midnight boundary', async () => {
-      // Simulate yesterday at 11:59 PM
+      // Simulate yesterday
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(23, 59, 59);
       const yesterdayString = yesterday.toISOString().split('T')[0];
       
       chrome.storage.local.get.mockResolvedValue({
@@ -261,10 +260,28 @@ describe('redirects.js', () => {
         dailySolveTimestamp: yesterday.getTime()
       });
       
+      // Mock problem set for installRedirectRule
+      global.fetch.mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({
+          categories: [{
+            name: 'Arrays & Hashing',
+            problems: [{ slug: 'two-sum', id: 1, title: 'Two Sum', difficulty: 'Easy' }]
+          }]
+        })
+      });
+      
+      chrome.storage.sync.get.mockResolvedValue({
+        currentCategoryIndex: 0,
+        currentProblemIndex: 0,
+        solvedProblems: []
+      });
+      
       await redirects.checkDailyReset();
       
       // checkDailyReset calls clearDailySolve() which calls remove
-      expect(chrome.storage.local.remove).toHaveBeenCalled();
+      expect(chrome.storage.local.remove).toHaveBeenCalledWith(
+        expect.arrayContaining(['dailySolveDate', 'dailySolveTimestamp', 'dailySolveProblem'])
+      );
       // checkDailyReset calls installRedirectRule() which calls updateDynamicRules
       expect(chrome.declarativeNetRequest.updateDynamicRules).toHaveBeenCalled();
     });

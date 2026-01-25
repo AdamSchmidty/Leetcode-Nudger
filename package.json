@@ -5,7 +5,8 @@
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:json": "jest --json --outputFile=testrun.json"
   },
   "devDependencies": {
     "@babel/core": "^7.23.0",
