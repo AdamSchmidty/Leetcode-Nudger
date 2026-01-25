@@ -14,7 +14,8 @@ console.log("Leetcode Buddy - Background Service Worker Starting");
 chrome.runtime.onInstalled.addListener(async () => {
   console.log("Leetcode Buddy installed");
   await loadAliases();
-  await computeNextProblem();
+  // On first install, sync all solved problems from LeetCode
+  await computeNextProblem(true);
   await installRedirectRule();
 });
 
