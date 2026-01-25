@@ -241,23 +241,36 @@ describe('problemLogic.js', () => {
       expect(nextProblem.categoryName).toBe('Arrays & Hashing');
       expect(nextProblem.categoryIndex).toBe(0);
       expect(nextProblem.problemIndex).toBe(0);
+      
+      // Should have no solved problems
+      expect(nextProblem.solvedCount).toBe(0);
+      
+      // Verify saveState was called with empty solvedProblems
+      expect(chrome.storage.sync.set).toHaveBeenCalled();
+      const setCalls = chrome.storage.sync.set.mock.calls;
+      const lastCall = setCalls[setCalls.length - 1];
+      const savedSolvedProblems = lastCall[0].solvedProblems;
+      expect(savedSolvedProblems.length).toBe(0);
     });
 
     it('should skip solved problems and return next unsolved', async () => {
+      // Pre-populate state with solved problems (simulating normal operation after first install)
       chrome.storage.sync.get.mockResolvedValue({
         currentCategoryIndex: 0,
         currentProblemIndex: 0,
-        solvedProblems: []
+        solvedProblems: ['two-sum', 'valid-anagram']
       });
       
       // Set up mocks for this specific test
       // Mock problem set (loadProblemSet calls fetch)
       global.fetch
         .mockResolvedValueOnce({
+          ok: true,
           json: jest.fn().mockResolvedValue(mockProblemSet)
         })
         // Mock aliases (loadAliases calls fetch)
         .mockResolvedValueOnce({
+          ok: true,
           json: jest.fn().mockResolvedValue(mockAliases)
         })
         // Mock LeetCode API (fetchAllProblemStatuses calls fetch)
@@ -275,6 +288,7 @@ describe('problemLogic.js', () => {
           })
         });
       
+      // Call without syncAllSolved (normal operation, uses existing state)
       const nextProblem = await problemLogic.computeNextProblem();
       
       // Should skip two-sum and valid-anagram (both solved) and return group-anagrams
@@ -282,9 +296,21 @@ describe('problemLogic.js', () => {
       expect(nextProblem.problem.slug).toBe('group-anagrams');
       expect(nextProblem.categoryIndex).toBe(0);
       expect(nextProblem.problemIndex).toBe(2);
+      
+      // Should have both solved problems from state
+      expect(nextProblem.solvedCount).toBe(2);
+      
+      // Verify saveState was called with both solved problems
+      expect(chrome.storage.sync.set).toHaveBeenCalled();
+      const setCalls = chrome.storage.sync.set.mock.calls;
+      const lastCall = setCalls[setCalls.length - 1];
+      const savedSolvedProblems = lastCall[0].solvedProblems;
+      expect(savedSolvedProblems).toContain('two-sum');
+      expect(savedSolvedProblems).toContain('valid-anagram');
+      expect(savedSolvedProblems.length).toBe(2);
     });
 
-    it('should move to next category when current category complete', async () => {
+    it('should mark all solved problems even when solved out of order (on first install)', async () => {
       chrome.storage.sync.get.mockResolvedValue({
         currentCategoryIndex: 0,
         currentProblemIndex: 0,
@@ -295,10 +321,124 @@ describe('problemLogic.js', () => {
       // Mock problem set (loadProblemSet calls fetch)
       global.fetch
         .mockResolvedValueOnce({
+          ok: true,
           json: jest.fn().mockResolvedValue(mockProblemSet)
         })
         // Mock aliases (loadAliases calls fetch)
         .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue(mockAliases)
+        })
+        // Mock LeetCode API (fetchAllProblemStatuses calls fetch)
+        // User solved problem #3 (group-anagrams) and #5 (two-sum-ii) out of order
+        // But not #1 (two-sum), #2 (valid-anagram), or #4 (valid-palindrome)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            stat_status_pairs: [
+              { stat: { question__title_slug: 'two-sum' }, status: null },
+              { stat: { question__title_slug: 'valid-anagram' }, status: null },
+              { stat: { question__title_slug: 'group-anagrams' }, status: 'ac' },
+              { stat: { question__title_slug: 'valid-palindrome' }, status: null },
+              { stat: { question__title_slug: 'two-sum-ii' }, status: 'ac' }
+            ]
+          })
+        });
+      
+      // Call with syncAllSolved=true (simulating first install)
+      const nextProblem = await problemLogic.computeNextProblem(true);
+      
+      // Should return problem #1 (two-sum) as first unsolved
+      expect(nextProblem).toBeTruthy();
+      expect(nextProblem.problem.slug).toBe('two-sum');
+      expect(nextProblem.categoryIndex).toBe(0);
+      expect(nextProblem.problemIndex).toBe(0);
+      
+      // Should have marked both #3 and #5 as solved
+      expect(nextProblem.solvedCount).toBe(2);
+      
+      // Verify saveState was called with both solved problems
+      expect(chrome.storage.sync.set).toHaveBeenCalled();
+      const setCalls = chrome.storage.sync.set.mock.calls;
+      const lastCall = setCalls[setCalls.length - 1];
+      const savedSolvedProblems = lastCall[0].solvedProblems;
+      expect(savedSolvedProblems).toContain('group-anagrams');
+      expect(savedSolvedProblems).toContain('two-sum-ii');
+      expect(savedSolvedProblems.length).toBe(2);
+    });
+
+    it('should not sync all solved problems on normal startup (respects reset)', async () => {
+      // Simulate user reset progress - storage is cleared
+      chrome.storage.sync.get.mockResolvedValue({
+        currentCategoryIndex: 0,
+        currentProblemIndex: 0,
+        solvedProblems: []
+      });
+      
+      // Set up mocks for this specific test
+      // Mock problem set (loadProblemSet calls fetch)
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue(mockProblemSet)
+        })
+        // Mock aliases (loadAliases calls fetch)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue(mockAliases)
+        })
+        // Mock LeetCode API - user has solved problems, but we shouldn't sync them
+        // because syncAllSolved=false (normal startup after reset)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue({
+            stat_status_pairs: [
+              { stat: { question__title_slug: 'two-sum' }, status: 'ac' },
+              { stat: { question__title_slug: 'valid-anagram' }, status: 'ac' },
+              { stat: { question__title_slug: 'group-anagrams' }, status: null }
+            ]
+          })
+        });
+      
+      // Call with syncAllSolved=false (default, simulating normal startup)
+      const nextProblem = await problemLogic.computeNextProblem(false);
+      
+      // Should return problem #1 (two-sum) as first unsolved
+      // Even though it's solved in LeetCode, we respect the reset
+      expect(nextProblem).toBeTruthy();
+      expect(nextProblem.problem.slug).toBe('two-sum');
+      expect(nextProblem.categoryIndex).toBe(0);
+      expect(nextProblem.problemIndex).toBe(0);
+      
+      // Should NOT have synced solved problems from LeetCode
+      expect(nextProblem.solvedCount).toBe(0);
+      
+      // Verify saveState was called with empty solvedProblems
+      expect(chrome.storage.sync.set).toHaveBeenCalled();
+      const setCalls = chrome.storage.sync.set.mock.calls;
+      const lastCall = setCalls[setCalls.length - 1];
+      const savedSolvedProblems = lastCall[0].solvedProblems;
+      expect(savedSolvedProblems.length).toBe(0);
+    });
+
+    it('should move to next category when current category complete', async () => {
+      // Pre-populate state with all solved problems from first category
+      chrome.storage.sync.get.mockResolvedValue({
+        currentCategoryIndex: 0,
+        currentProblemIndex: 0,
+        solvedProblems: ['two-sum', 'valid-anagram', 'group-anagrams']
+      });
+      
+      // Set up mocks for this specific test
+      // Mock problem set (loadProblemSet calls fetch)
+      global.fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: jest.fn().mockResolvedValue(mockProblemSet)
+        })
+        // Mock aliases (loadAliases calls fetch)
+        .mockResolvedValueOnce({
+          ok: true,
           json: jest.fn().mockResolvedValue(mockAliases)
         })
         // Mock LeetCode API (fetchAllProblemStatuses calls fetch)
@@ -316,6 +456,7 @@ describe('problemLogic.js', () => {
           })
         });
       
+      // Call without syncAllSolved (normal operation, uses existing state)
       const nextProblem = await problemLogic.computeNextProblem();
       
       // Should move to next category (Two Pointers) and return first problem there
@@ -324,27 +465,43 @@ describe('problemLogic.js', () => {
       expect(nextProblem.categoryName).toBe('Two Pointers');
       expect(nextProblem.categoryIndex).toBe(1);
       expect(nextProblem.problemIndex).toBe(0);
+      
+      // Should have all 3 problems from first category as solved
+      expect(nextProblem.solvedCount).toBe(3);
+      
+      // Verify saveState was called with all solved problems
+      expect(chrome.storage.sync.set).toHaveBeenCalled();
+      const setCalls = chrome.storage.sync.set.mock.calls;
+      const lastCall = setCalls[setCalls.length - 1];
+      const savedSolvedProblems = lastCall[0].solvedProblems;
+      expect(savedSolvedProblems).toContain('two-sum');
+      expect(savedSolvedProblems).toContain('valid-anagram');
+      expect(savedSolvedProblems).toContain('group-anagrams');
+      expect(savedSolvedProblems.length).toBe(3);
     });
 
     it('should return last problem info when all problems solved', async () => {
       // Clear caches at start of test to ensure fresh state
       clearCaches();
       
+      // Pre-populate state with all solved problems
       chrome.storage.sync.get.mockResolvedValue({
         currentCategoryIndex: 0,
         currentProblemIndex: 0,
-        solvedProblems: []
+        solvedProblems: ['two-sum', 'valid-anagram', 'group-anagrams', 'valid-palindrome', 'two-sum-ii']
       });
       
       // Use mockImplementation to match URL and return appropriate response
       global.fetch.mockImplementation((url) => {
         if (url.includes('neetcode250.json')) {
           return Promise.resolve({
+            ok: true,
             json: jest.fn().mockResolvedValue(mockProblemSet)
           });
         }
         if (url.includes('problemAliases.json')) {
           return Promise.resolve({
+            ok: true,
             json: jest.fn().mockResolvedValue(mockAliases)
           });
         }
@@ -365,6 +522,7 @@ describe('problemLogic.js', () => {
         return Promise.reject(new Error(`Unexpected fetch URL: ${url}`));
       });
       
+      // Call without syncAllSolved (normal operation, uses existing state)
       const nextProblem = await problemLogic.computeNextProblem();
       
       // When all solved, returns last problem info with allSolved flag

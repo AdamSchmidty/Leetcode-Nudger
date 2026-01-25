@@ -124,9 +124,10 @@ export function computeCategoryProgress(category, solvedProblems) {
 /**
  * Compute next unsolved problem across all categories
  * Syncs with LeetCode to get current solve status
+ * @param {boolean} syncAllSolved - If true, scan all problems and mark all solved ones (for first install only)
  * @returns {Promise<Object|null>} Next problem info or null if error
  */
-export async function computeNextProblem() {
+export async function computeNextProblem(syncAllSolved = false) {
   await loadProblemSet();
   await loadAliases();
   
@@ -137,20 +138,37 @@ export async function computeNextProblem() {
 
   const state = await getState();
   const statusMap = await fetchAllProblemStatuses();
-  const solvedProblems = new Set();
+  
+  // Start with existing solved problems from state
+  const solvedProblems = new Set(state.solvedProblems || []);
+  
+  // First pass: Mark ALL solved problems (only on first install)
+  // This ensures all solved problems are tracked when extension is first installed
+  // But respects user's reset progress choice on subsequent startups
+  if (syncAllSolved) {
+    for (let catIdx = 0; catIdx < problemSet.categories.length; catIdx++) {
+      const category = problemSet.categories[catIdx];
+      
+      for (let probIdx = 0; probIdx < category.problems.length; probIdx++) {
+        const problem = category.problems[probIdx];
+        const canonicalSlug = resolveProblemAlias(problem.slug);
+        const status = statusMap.get(canonicalSlug);
 
-  // Iterate through all categories to find first unsolved problem
+        if (status === "ac") {
+          solvedProblems.add(problem.slug);
+        }
+      }
+    }
+  }
+
+  // Second pass: Find first unsolved problem in order
   for (let catIdx = 0; catIdx < problemSet.categories.length; catIdx++) {
     const category = problemSet.categories[catIdx];
     
     for (let probIdx = 0; probIdx < category.problems.length; probIdx++) {
       const problem = category.problems[probIdx];
-      const canonicalSlug = resolveProblemAlias(problem.slug);
-      const status = statusMap.get(canonicalSlug);
-
-      if (status === "ac") {
-        solvedProblems.add(problem.slug);
-      } else {
+      
+      if (!solvedProblems.has(problem.slug)) {
         // Found first unsolved problem
         currentCategoryIndex = catIdx;
         currentProblemIndex = probIdx;

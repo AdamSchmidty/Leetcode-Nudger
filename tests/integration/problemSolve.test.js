@@ -114,19 +114,22 @@ describe('Problem Solving Integration', () => {
         ]
       };
 
+      // Pre-populate state with solved problem (simulating it was solved via extension)
       chrome.storage.sync.get.mockResolvedValue({
         currentCategoryIndex: 0,
         currentProblemIndex: 0,
-        solvedProblems: []
+        solvedProblems: ['two-sum']
       });
 
       // Mock problem set load (loadProblemSet calls fetch)
       global.fetch.mockResolvedValueOnce({
+        ok: true,
         json: jest.fn().mockResolvedValue(mockProblemSet)
       });
 
       // Mock aliases load (loadAliases calls fetch)
       global.fetch.mockResolvedValueOnce({
+        ok: true,
         json: jest.fn().mockResolvedValue({})
       });
 
@@ -142,6 +145,7 @@ describe('Problem Solving Integration', () => {
         })
       });
 
+      // Call without syncAllSolved (normal operation, uses existing state)
       const nextProblem = await problemLogic.computeNextProblem();
 
       // Should return first unsolved problem (valid-anagram, since two-sum is solved)
