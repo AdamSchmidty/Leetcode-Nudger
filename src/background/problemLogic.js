@@ -17,6 +17,15 @@ export let currentCategoryIndex = 0;
 export let currentProblemIndex = 0;
 
 /**
+ * Clear caches (for testing purposes)
+ * @returns {void}
+ */
+export function clearCaches() {
+  problemSet = null;
+  problemAliases = {};
+}
+
+/**
  * Load the problem set JSON from assets
  * @returns {Promise<Object|null>} The problem set object or null on error
  */

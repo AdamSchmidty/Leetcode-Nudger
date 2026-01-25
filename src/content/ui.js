@@ -151,6 +151,7 @@ export async function showSolvedNotification() {
   
   // Always show the notification
   const notification = document.createElement("div");
+  notification.id = "leetcode-buddy-notification";
   notification.style.cssText = `
     position: fixed;
     top: 20px;

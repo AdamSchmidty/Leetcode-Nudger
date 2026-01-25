@@ -20,8 +20,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://leetcode.com/problems/*"],
-      "js": ["src/content/index.js"],
+      "matches": [
+        "https://leetcode.com/problems/*"
+      ],
+      "js": [
+        "src/content/index.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -41,8 +45,13 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["src/assets/data/neetcode250.json", "src/assets/data/problemAliases.json"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "src/assets/data/neetcode250.json",
+        "src/assets/data/problemAliases.json"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ]
 }

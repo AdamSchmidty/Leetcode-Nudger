@@ -8,6 +8,9 @@ import * as problemLogic from '../../src/background/problemLogic.js';
 import * as redirects from '../../src/background/redirects.js';
 import * as messageHandler from '../../src/background/messageHandler.js';
 
+// Access clearCaches function
+const { clearCaches } = problemLogic;
+
 describe('Problem Solving Integration', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -24,6 +27,10 @@ describe('Problem Solving Integration', () => {
     chrome.storage.local.remove.mockResolvedValue();
     chrome.declarativeNetRequest.updateDynamicRules.mockResolvedValue();
     global.fetch.mockClear();
+    global.fetch.mockReset();
+    
+    // Clear caches to ensure fresh state
+    clearCaches();
   });
 
   describe('User solves current problem', () => {
@@ -92,6 +99,9 @@ describe('Problem Solving Integration', () => {
     });
 
     it('should update progress and advance to next problem', async () => {
+      // Clear caches at start of test
+      clearCaches();
+      
       const mockProblemSet = {
         categories: [
           {
@@ -110,17 +120,18 @@ describe('Problem Solving Integration', () => {
         solvedProblems: []
       });
 
-      // Mock problem set load
+      // Mock problem set load (loadProblemSet calls fetch)
       global.fetch.mockResolvedValueOnce({
         json: jest.fn().mockResolvedValue(mockProblemSet)
       });
 
-      // Mock aliases load
+      // Mock aliases load (loadAliases calls fetch)
       global.fetch.mockResolvedValueOnce({
         json: jest.fn().mockResolvedValue({})
       });
 
-      // Mock LeetCode API - two-sum is solved, valid-anagram is not
+      // Mock LeetCode API (fetchAllProblemStatuses calls fetch)
+      // two-sum is solved, valid-anagram is not
       global.fetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({
@@ -134,6 +145,7 @@ describe('Problem Solving Integration', () => {
       const nextProblem = await problemLogic.computeNextProblem();
 
       // Should return first unsolved problem (valid-anagram, since two-sum is solved)
+      expect(nextProblem).toBeTruthy();
       expect(nextProblem.problem.slug).toBe('valid-anagram');
       expect(nextProblem.problemIndex).toBe(1);
     });
@@ -322,6 +334,9 @@ describe('Problem Solving Integration', () => {
 
   describe('Category progress tracking', () => {
     it('should correctly calculate progress across categories', async () => {
+      // Clear caches at start of test
+      clearCaches();
+      
       const mockProblemSet = {
         categories: [
           {
@@ -342,12 +357,9 @@ describe('Problem Solving Integration', () => {
         ]
       };
 
+      // Mock problem set load (getAllCategoryProgress calls loadProblemSet)
       global.fetch.mockResolvedValueOnce({
         json: jest.fn().mockResolvedValue(mockProblemSet)
-      });
-
-      global.fetch.mockResolvedValueOnce({
-        json: jest.fn().mockResolvedValue({})
       });
 
       chrome.storage.sync.get.mockResolvedValue({
