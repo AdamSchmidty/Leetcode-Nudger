@@ -1,15 +1,18 @@
 # 🤝 Leetcode Buddy
 
-Your daily LeetCode companion! A Chrome extension that helps you complete the NeetCode 250 problem list in order by restricting access to non-whitelisted websites until you solve the current problem.
+Your daily LeetCode companion! A Chrome extension that helps you stay focused and complete coding problem sets by restricting access to non-whitelisted websites until you solve your daily problem.
 
 ## Features
 
-- ✅ **Automatic Problem Tracking**: Detects when you solve problems on LeetCode
-- 🚫 **Website Blocking**: Blocks all websites except neetcode.io, leetcode.com, and chatgpt.com
-- 🎯 **Enforced Order**: Redirects you to the next unsolved problem in the NeetCode 250 list
+- ✅ **Automatic Problem Tracking**: Detects when you solve problems on LeetCode and automatically advances to the next one
+- 🚫 **Website Blocking**: Redirects non-whitelisted websites to your current problem until you solve it
+- 🎯 **Multiple Problem Sets**: Choose from Blind 75, NeetCode 150, NeetCode 250, or NeetCode All
+- 🎲 **Random Problem Selection**: Option to randomly select from unsolved problems instead of going in sequence
+- 📊 **Progress Tracking**: Visual progress bars showing your progress overall and by category
 - ⏱️ **Timed Bypass**: Take a 10-minute break when needed (30-minute cooldown)
-- 📊 **Progress Tracking**: Visual progress bar showing how many problems you've solved
 - 🔄 **Auto-Sync**: Automatically syncs with your LeetCode account status
+- 🎉 **Celebrations**: Optional confetti animations when you solve your daily problem
+- ⚙️ **Customizable Exclusions**: Add up to 10 websites to exclude from redirection
 
 ## Installation
 
@@ -24,53 +27,43 @@ Your daily LeetCode companion! A Chrome extension that helps you complete the Ne
 ### Step 2: Log in to LeetCode
 
 1. Navigate to [leetcode.com](https://leetcode.com/)
-2. Log in to your account (adamschmidt2023)
+2. Log in to your LeetCode account
 3. The extension will automatically sync your solved problems
 
-### Step 3: Start Grinding!
+### Step 3: Configure Settings (Optional)
+
+1. Right-click the extension icon and select **Options** (or click the ⚙️ Settings button in the popup)
+2. Choose your preferred problem set (Blind 75, NeetCode 150, NeetCode 250, or NeetCode All)
+3. Customize your preferences (see [Settings & Configuration](#settings--configuration) below)
+
+### Step 4: Start Grinding!
 
 Once installed, the extension will:
-
-- Redirect all non-whitelisted websites to your current NeetCode 250 problem
+- Redirect all non-whitelisted websites to your current problem
 - Track your progress automatically
 - Update to the next problem when you solve the current one
+- Unblock all websites after you solve your daily problem (until midnight)
 
-## How It Works
+## How to Use
 
-### Website Blocking
-
-The extension uses Chrome's `declarativeNetRequest` API to redirect all navigation to non-whitelisted websites. Only these domains are allowed:
-
-- `neetcode.io` - View the NeetCode 250 list
-- `leetcode.com` - Solve problems
-- `chatgpt.com` - Get help when stuck
-
-### Automatic Problem Detection
-
-When you're on a LeetCode problem page, the content script:
-
-1. Monitors the page for successful submission indicators
-2. Queries LeetCode's GraphQL API to confirm the problem status
-3. Notifies the background service worker when status is "Accepted"
-4. Automatically advances to the next problem in the list
-
-### Progress Tracking
-
-Your progress is stored in Chrome's sync storage and automatically backed up across devices. The extension:
-
-- Tracks which problems you've solved
-- Maintains your current position in the NeetCode 250 list
-- Syncs with LeetCode's API on startup to ensure accuracy
-
-## Using the Extension
-
-### View Progress
+### View Your Progress
 
 Click the extension icon in your Chrome toolbar to see:
+- **Overall Progress**: Total problems solved with a visual progress bar
+- **Current Problem**: The problem you need to solve next, with direct links to LeetCode and NeetCode video solutions
+- **Category Progress**: Breakdown of solved problems by category
+- **Daily Status**: Whether you've completed today's problem
 
-- Total problems solved (X / 250)
-- Current problem name and link
-- Visual progress bar
+### Solve Your Daily Problem
+
+1. The extension automatically redirects you to your current problem when you try to visit non-whitelisted sites
+2. Work on the problem on LeetCode
+3. Submit your solution
+4. Once your submission is marked as "Accepted", the extension will:
+   - Show a celebration animation (if enabled)
+   - Mark the problem as solved
+   - Advance to the next problem
+   - Unblock all websites until midnight
 
 ### Take a Break
 
@@ -82,13 +75,104 @@ When you need a breather:
 4. After the break, the redirect automatically resumes
 5. You can take another break after a 30-minute cooldown
 
-### Refresh Status
+### Refresh Your Status
 
 If you've solved problems outside the extension or want to force a sync:
 
 1. Click the extension icon
 2. Click **"🔄 Refresh Status"**
-3. The extension will query LeetCode for your latest progress
+3. The extension will query LeetCode for your latest progress and update accordingly
+
+### Access Settings
+
+1. Click the extension icon
+2. Click **"⚙️ Settings"** to open the options page
+3. Configure your preferences (see [Settings & Configuration](#settings--configuration) below)
+
+## Settings & Configuration
+
+Access settings by right-clicking the extension icon and selecting **Options**, or click the ⚙️ Settings button in the popup.
+
+### Problem Set Selection
+
+Choose which problem set you want to work through:
+- **Blind 75**: The classic 75 essential problems
+- **NeetCode 150**: 150 curated problems
+- **NeetCode 250**: 250 problems organized by category
+- **NeetCode All**: Comprehensive collection of all NeetCode problems
+
+### Display Preferences
+
+- **Celebration Animations**: Toggle confetti and celebration animations when you solve your daily problem
+- **Sort Problems by Difficulty**: Sort problems within each category by difficulty (Easy → Medium → Hard) instead of the original problemset order
+- **Random Problem Selection**: Select problems randomly from unsolved problems instead of going in sequence
+- **Clear Editor on First Open** (Experimental): Clear the code editor content when you first open a problem each day. Subsequent refreshes will preserve your work.
+
+### Exclusion List
+
+Customize which websites are excluded from redirection:
+
+- **System Domains** (Always Excluded): These domains are required for the extension to function:
+  - `leetcode.com` - Solve problems
+  - `neetcode.io` - View problem lists and solutions
+  - `accounts.google.com` - Google OAuth authentication
+
+- **Your Custom Domains**: Add up to 10 additional websites to exclude from redirection:
+  1. Enter a domain (e.g., `github.com`) in the input field
+  2. Click **"Add Domain"**
+  3. Remove domains by clicking the × button next to them
+  4. Click **"Reset to Defaults"** to restore default exclusions (GitHub, LinkedIn)
+
+### Category Progress
+
+View all problems organized by category with visual progress indicators. Click categories to expand and see individual problems and their status.
+
+### Reset Progress
+
+If you want to start fresh:
+1. Scroll to the **Reset Progress** section
+2. Click **"Reset All Progress"**
+3. Confirm the action (this cannot be undone)
+
+## Troubleshooting
+
+### Extension Not Redirecting
+
+1. Make sure you're logged in to LeetCode
+2. Check that the extension is enabled in `chrome://extensions/`
+3. Verify that you haven't already solved today's problem (websites are unblocked after solving)
+4. Try clicking **"🔄 Refresh Status"** in the extension popup
+5. Check the exclusion list in settings to ensure the site isn't excluded
+
+### Problem Not Advancing
+
+1. Ensure your submission is marked as "Accepted" on LeetCode
+2. Wait a few seconds for the extension to detect the change
+3. Try refreshing the LeetCode problem page
+4. Click **"🔄 Refresh Status"** in the extension popup
+5. Check the browser console for any error messages
+
+### Can't Access Excluded Sites
+
+1. Check your internet connection
+2. Make sure the sites are using `https://`
+3. Verify the domain is in your exclusion list (Settings → Exclusion List)
+4. Try disabling and re-enabling the extension
+
+### Progress Not Syncing
+
+1. Make sure you're logged in to LeetCode
+2. Click **"🔄 Refresh Status"** in the extension popup
+3. Check that Chrome sync is enabled (for cross-device sync)
+4. Verify your LeetCode account has the problems marked as solved
+
+### Celebration Not Showing
+
+1. Check Settings → Display Preferences → Celebration Animations is enabled
+2. Make sure you're solving the expected problem (not a different one)
+3. Verify the problem was solved today (not in the past)
+
+---
 
 ## Architecture
 
@@ -104,7 +188,7 @@ Leetcode Buddy uses a modular architecture with ES6 modules for better maintaina
 ### Content Script (4 modules)
 - `src/content/index.js` - Main entry point & DOM observation
 - `src/content/api.js` - LeetCode API layer
-- `src/content/detector.js` - Problem solve detection logic
+- `src/content/detector.js` - Problem solve detection logic with optimization guards
 - `src/content/ui.js` - Celebrations & notifications
 
 ### Shared
@@ -128,12 +212,18 @@ leetcodeForcer/
 │   │   ├── index.js
 │   │   ├── api.js
 │   │   ├── detector.js
+│   │   ├── editor.js
 │   │   └── ui.js
 │   ├── shared/             # Shared constants
 │   │   └── constants.js
 │   └── assets/             # Icons, data, styles
 │       ├── icons/
 │       ├── data/
+│       │   ├── blind75.json
+│       │   ├── neetcode150.json
+│       │   ├── neetcode250.json
+│       │   ├── neetcodeAll.json
+│       │   └── problemAliases.json
 │       └── styles/
 ├── tests/                  # Unit and integration tests
 │   ├── background/
@@ -147,6 +237,35 @@ leetcodeForcer/
 
 ## Technical Details
 
+### How It Works
+
+#### Website Blocking
+
+The extension uses Chrome's `declarativeNetRequest` API to redirect all navigation to non-excluded websites. The exclusion list consists of:
+- System-enforced domains (LeetCode, NeetCode, Google OAuth) - always excluded
+- User-defined domains (up to 10 custom domains) - configurable in settings
+
+#### Automatic Problem Detection
+
+When you're on a LeetCode problem page, the content script:
+
+1. Monitors the page for successful submission indicators (DOM mutations)
+2. Queries LeetCode's GraphQL API to confirm the problem status
+3. Verifies the submission was made today (not in the past)
+4. Checks that it's the expected problem (not a different one)
+5. Notifies the background service worker when status is "Accepted"
+6. Automatically advances to the next problem in the list
+7. Optimizes by skipping redundant checks once a problem is confirmed solved today
+
+#### Progress Tracking
+
+Your progress is stored in Chrome's sync storage and automatically backed up across devices. The extension:
+
+- Tracks which problems you've solved (stored as problem slugs)
+- Maintains your current position in the selected problem set
+- Syncs with LeetCode's API on startup and when manually refreshed
+- Tracks daily solve status (resets at midnight)
+
 ### Permissions
 
 The extension requires:
@@ -157,71 +276,32 @@ The extension requires:
 
 ### APIs Used
 
-- **LeetCode GraphQL API**: Check problem solve status
+- **LeetCode GraphQL API**: Check problem solve status and fetch submission history
   - Endpoint: `https://leetcode.com/graphql`
-  - Query: `question(titleSlug: $slug) { status }`
+  - Queries: `questionStatus`, `recentSubmissionList`, `submissionList`, `globalData`
 - **LeetCode Problems API**: Bulk fetch all problem statuses
   - Endpoint: `https://leetcode.com/api/problems/all/`
 
 ### Storage
 
 - `chrome.storage.sync`:
-
-  - `currentIndex` - Current position in NeetCode 250 list
+  - `currentProblemSlug` - Current problem slug
+  - `categoryIndex` - Current category index
+  - `problemIndex` - Current problem index within category
   - `solvedProblems` - Array of solved problem slugs
+  - `activeProblemSet` - Selected problem set ID
+  - `userExclusionList` - User-defined exclusion domains
+  - `randomProblemSelection` - Random selection toggle
+  - `sortByDifficulty` - Sort by difficulty toggle
+  - `clearEditorOnFirstOpen` - Clear editor toggle
+  - `celebrationEnabled` - Celebration animations toggle
 
 - `chrome.storage.local`:
   - `bypassUntil` - Timestamp when bypass expires
   - `nextBypassAllowed` - Timestamp when next bypass can be activated
-
-## Troubleshooting
-
-### Extension Not Redirecting
-
-1. Make sure you're logged in to LeetCode
-2. Check that the extension is enabled in `chrome://extensions/`
-3. Try clicking "Refresh Status" in the extension popup
-
-### Problem Not Advancing
-
-1. Ensure your submission is marked as "Accepted" on LeetCode
-2. Wait a few seconds for the extension to detect the change
-3. Try refreshing the LeetCode problem page
-4. Click "Refresh Status" in the extension popup
-
-### Can't Access Whitelisted Sites
-
-1. Check your internet connection
-2. Make sure the sites are using `https://`
-3. Try disabling and re-enabling the extension
-
-## Customization
-
-### Add More Whitelisted Sites
-
-Edit `src/shared/constants.js`:
-
-```javascript
-export const WHITELIST = [
-  "leetcode.com",
-  "neetcode.io",
-  "chatgpt.com",
-  "your-site.com",
-];
-```
-
-### Change Bypass Duration
-
-Edit `src/shared/constants.js`:
-
-```javascript
-export const BYPASS_DURATION_MS = 15 * 60 * 1000; // 15 minutes
-export const COOLDOWN_DURATION_MS = 60 * 60 * 1000; // 60 minutes
-```
-
-### Update Problem List
-
-Replace `src/assets/data/neetcode250.json` with your custom problem list organized by categories.
+  - `dailySolveDate` - Date when daily problem was solved (YYYY-MM-DD)
+  - `dailySolveProblem` - Slug of the problem solved today
+  - `problemFirstOpened_*` - Per-problem first-open tracking for editor clearing
 
 ## Development
 
@@ -269,10 +349,48 @@ See [docs/TESTING.md](docs/TESTING.md) for detailed testing guide.
 - **Background Script**: `chrome://extensions/` → Click "service worker" under the extension
 - **Content Script**: Open DevTools on any LeetCode problem page
 - **Popup**: Right-click the extension icon → "Inspect popup"
+- **Options Page**: Right-click the extension icon → "Options" → Open DevTools
 
 ### Contributing
 
 See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for development guidelines and best practices.
+
+## Customization
+
+### Add More Excluded Sites
+
+Use the Settings page (Options → Exclusion List) to add up to 10 custom domains. For system-level changes, edit `src/shared/constants.js`:
+
+```javascript
+export const DEFAULT_USER_EXCLUSION_LIST = [
+  "github.com",
+  "linkedin.com",
+  "your-site.com",
+];
+```
+
+### Change Bypass Duration
+
+Edit `src/shared/constants.js`:
+
+```javascript
+export const BYPASS_DURATION_MS = 15 * 60 * 1000; // 15 minutes
+export const COOLDOWN_DURATION_MS = 60 * 60 * 1000; // 60 minutes
+```
+
+### Update Problem Lists
+
+Problem sets are stored in JSON format in `src/assets/data/`:
+- `blind75.json`
+- `neetcode150.json`
+- `neetcode250.json`
+- `neetcodeAll.json`
+
+Each file contains an array of categories, with each category containing an array of problems with properties: `slug`, `leetcodeId`, `title`, `difficulty`, `category`.
+
+### Modify Problem Aliases
+
+Edit `src/assets/data/problemAliases.json` to add or modify problem slug aliases for better matching.
 
 ## License
 
@@ -280,12 +398,11 @@ MIT License - Feel free to modify and distribute
 
 ## Credits
 
-- NeetCode 250 problem list curated by [NeetCode](https://neetcode.io/)
+- NeetCode problem lists curated by [NeetCode](https://neetcode.io/)
 - Built with Chrome Extension Manifest V3
 
 ---
 
 **Good luck with your grinding! 💪**
 
-Remember: The only way out is through. Stay focused and you'll complete all 250 problems!
-
+Remember: The only way out is through. Stay focused and you'll complete all your problems!
