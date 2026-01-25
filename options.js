@@ -112,11 +112,14 @@ problemSetSelect.addEventListener("change", async () => {
     await chrome.storage.sync.set({ selectedProblemSet: selectedSet });
     console.log("Problem set changed to:", selectedSet);
 
-    // Refresh status
+    // Refresh status first to recompute next problem for new set
     await chrome.runtime.sendMessage({ type: "REFRESH_STATUS" });
 
-    // Reload settings
+    // Reload settings to get updated totals and progress
     await loadSettings();
+    
+    // Refresh category accordion to show new problem set
+    await renderCategoryAccordion();
   } catch (error) {
     console.error("Failed to save problem set:", error);
   }

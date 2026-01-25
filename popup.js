@@ -342,6 +342,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Refresh status every 30 seconds
   setInterval(updateStatus, 30000);
+  
+  // Listen for storage changes (e.g., when problem set changes)
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'sync' && changes.selectedProblemSet) {
+      // Problem set changed, refresh the display
+      updateStatus();
+    }
+  });
 });
 
 // Clean up intervals when popup closes

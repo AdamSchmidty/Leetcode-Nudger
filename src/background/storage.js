@@ -6,8 +6,76 @@
 // ============================================================================
 
 /**
+ * Migrate old storage format to new per-set positions format
+ * @param {Object} result - Storage result object
+ * @returns {Promise<void>}
+ */
+async function migrateStorageIfNeeded(result) {
+  // Check if migration is needed (old format has currentCategoryIndex at root)
+  if (result.currentCategoryIndex !== undefined && !result.positions) {
+    console.log("Migrating storage from old format to per-set positions format");
+    
+    const positions = {
+      blind75: { categoryIndex: 0, problemIndex: 0 },
+      neetcode150: { categoryIndex: 0, problemIndex: 0 },
+      neetcode250: {
+        categoryIndex: result.currentCategoryIndex || 0,
+        problemIndex: result.currentProblemIndex || 0
+      },
+      neetcodeAll: { categoryIndex: 0, problemIndex: 0 }
+    };
+    
+    // Save migrated data
+    await chrome.storage.sync.set({
+      positions: positions,
+      solvedProblems: result.solvedProblems || [],
+      selectedProblemSet: result.selectedProblemSet || "neetcode250"
+    });
+    
+    // Remove old keys
+    await chrome.storage.sync.remove(["currentCategoryIndex", "currentProblemIndex"]);
+  }
+}
+
+/**
+ * Get position for a specific problem set
+ * @param {string} setId - Problem set ID
+ * @returns {Promise<Object>} Position object with categoryIndex and problemIndex
+ */
+export async function getPositionForSet(setId) {
+  const result = await chrome.storage.sync.get(["positions"]);
+  const positions = result.positions || {};
+  
+  if (positions[setId]) {
+    return {
+      categoryIndex: positions[setId].categoryIndex || 0,
+      problemIndex: positions[setId].problemIndex || 0
+    };
+  }
+  
+  // Default to 0,0 for new sets
+  return { categoryIndex: 0, problemIndex: 0 };
+}
+
+/**
+ * Save position for a specific problem set
+ * @param {string} setId - Problem set ID
+ * @param {number} categoryIndex - Current category index
+ * @param {number} problemIndex - Current problem index within category
+ * @returns {Promise<void>}
+ */
+export async function savePositionForSet(setId, categoryIndex, problemIndex) {
+  const result = await chrome.storage.sync.get(["positions"]);
+  const positions = result.positions || {};
+  
+  positions[setId] = { categoryIndex, problemIndex };
+  
+  await chrome.storage.sync.set({ positions });
+}
+
+/**
  * Get current state from chrome.storage.sync
- * @returns {Promise<Object>} State object with currentCategoryIndex, currentProblemIndex, and solvedProblems Set
+ * @returns {Promise<Object>} State object with position for selected set, solvedProblems Set, and selectedProblemSet
  */
 export async function getState() {
   const result = await chrome.storage.sync.get([
@@ -15,12 +83,22 @@ export async function getState() {
     "currentCategoryIndex",
     "currentProblemIndex",
     "selectedProblemSet",
+    "positions",
   ]);
+  
+  // Migrate if needed
+  await migrateStorageIfNeeded(result);
+  
+  const selectedProblemSet = result.selectedProblemSet || "neetcode250";
+  
+  // Get position for selected set
+  const position = await getPositionForSet(selectedProblemSet);
+  
   return {
     solvedProblems: new Set(result.solvedProblems || []),
-    currentCategoryIndex: result.currentCategoryIndex || 0,
-    currentProblemIndex: result.currentProblemIndex || 0,
-    selectedProblemSet: result.selectedProblemSet || "neetcode250",
+    currentCategoryIndex: position.categoryIndex,
+    currentProblemIndex: position.problemIndex,
+    selectedProblemSet: selectedProblemSet,
   };
 }
 
@@ -29,12 +107,21 @@ export async function getState() {
  * @param {number} categoryIndex - Current category index
  * @param {number} problemIndex - Current problem index within category
  * @param {Set<string>} solvedProblems - Set of solved problem slugs
+ * @param {string} [problemSetId] - Optional problem set ID (uses selectedProblemSet from storage if not provided)
  * @returns {Promise<void>}
  */
-export async function saveState(categoryIndex, problemIndex, solvedProblems) {
+export async function saveState(categoryIndex, problemIndex, solvedProblems, problemSetId = null) {
+  // Get selected problem set if not provided
+  if (!problemSetId) {
+    const state = await chrome.storage.sync.get(["selectedProblemSet"]);
+    problemSetId = state.selectedProblemSet || "neetcode250";
+  }
+  
+  // Save position for the specific set
+  await savePositionForSet(problemSetId, categoryIndex, problemIndex);
+  
+  // Save shared solved problems
   await chrome.storage.sync.set({
-    currentCategoryIndex: categoryIndex,
-    currentProblemIndex: problemIndex,
     solvedProblems: Array.from(solvedProblems),
   });
 }
@@ -128,5 +215,20 @@ export async function setBypassState(bypassUntil, nextBypassAllowed) {
  */
 export async function clearBypass() {
   await chrome.storage.local.remove(["bypassUntil", "nextBypassAllowed"]);
+}
+
+/**
+ * Reset all positions for all problem sets to 0,0
+ * @returns {Promise<void>}
+ */
+export async function resetAllPositions() {
+  const positions = {
+    blind75: { categoryIndex: 0, problemIndex: 0 },
+    neetcode150: { categoryIndex: 0, problemIndex: 0 },
+    neetcode250: { categoryIndex: 0, problemIndex: 0 },
+    neetcodeAll: { categoryIndex: 0, problemIndex: 0 }
+  };
+  
+  await chrome.storage.sync.set({ positions });
 }
 
