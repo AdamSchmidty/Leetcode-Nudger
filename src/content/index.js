@@ -14,6 +14,7 @@ let hasCheckedOnLoad = false;
 
 // Store imported functions
 let checkAndNotify = null;
+let shouldSkipSolveCheck = null;
 
 // Watch for DOM changes that indicate a submission result
 const observer = new MutationObserver((mutations) => {
@@ -33,8 +34,15 @@ const observer = new MutationObserver((mutations) => {
       }
 
       // Check status after a short delay to let LeetCode update the backend
-      checkTimeout = setTimeout(() => {
-        if (checkAndNotify) {
+      checkTimeout = setTimeout(async () => {
+        if (checkAndNotify && shouldSkipSolveCheck) {
+          // Check guard before calling
+          const skip = await shouldSkipSolveCheck();
+          if (!skip) {
+            checkAndNotify();
+          }
+        } else if (checkAndNotify) {
+          // Fallback if guard not yet loaded
           checkAndNotify();
         }
       }, 2000);
@@ -58,6 +66,7 @@ const observer = new MutationObserver((mutations) => {
     // Extract functions
     const { loadAliases, getCurrentSlug } = apiModule;
     checkAndNotify = detectorModule.checkAndNotify;
+    shouldSkipSolveCheck = detectorModule.shouldSkipSolveCheck;
     const { clearEditor } = editorModule;
     
     // Load problem aliases
@@ -129,10 +138,19 @@ const observer = new MutationObserver((mutations) => {
           handleEditorClearing();
 
           // Check after a delay to let the page load
-          setTimeout(() => {
+          setTimeout(async () => {
             if (!hasCheckedOnLoad && checkAndNotify) {
-              checkAndNotify();
-              hasCheckedOnLoad = true;
+              if (shouldSkipSolveCheck) {
+                const skip = await shouldSkipSolveCheck();
+                if (!skip) {
+                  checkAndNotify();
+                  hasCheckedOnLoad = true;
+                }
+              } else {
+                // Fallback if guard not yet loaded
+                checkAndNotify();
+                hasCheckedOnLoad = true;
+              }
             }
           }, 3000);
         }
@@ -142,15 +160,25 @@ const observer = new MutationObserver((mutations) => {
     }, 1000);
 
     // Initial check when content script loads
-    setTimeout(() => {
+    setTimeout(async () => {
       try {
         // Handle editor clearing on initial load
         handleEditorClearing();
         
         if (!hasCheckedOnLoad && checkAndNotify) {
-          console.log("Initial problem status check...");
-          checkAndNotify();
-          hasCheckedOnLoad = true;
+          if (shouldSkipSolveCheck) {
+            const skip = await shouldSkipSolveCheck();
+            if (!skip) {
+              console.log("Initial problem status check...");
+              checkAndNotify();
+              hasCheckedOnLoad = true;
+            }
+          } else {
+            // Fallback if guard not yet loaded
+            console.log("Initial problem status check...");
+            checkAndNotify();
+            hasCheckedOnLoad = true;
+          }
         }
       } catch (error) {
         console.error("Error in initial check:", error);
@@ -161,8 +189,19 @@ const observer = new MutationObserver((mutations) => {
     document.addEventListener("visibilitychange", () => {
       try {
         if (!document.hidden && checkAndNotify) {
-          console.log("Tab became visible, checking status...");
-          setTimeout(checkAndNotify, 1000);
+          setTimeout(async () => {
+            if (shouldSkipSolveCheck) {
+              const skip = await shouldSkipSolveCheck();
+              if (!skip) {
+                console.log("Tab became visible, checking status...");
+                checkAndNotify();
+              }
+            } else {
+              // Fallback if guard not yet loaded
+              console.log("Tab became visible, checking status...");
+              checkAndNotify();
+            }
+          }, 1000);
         }
       } catch (error) {
         console.error("Error in visibility change handler:", error);

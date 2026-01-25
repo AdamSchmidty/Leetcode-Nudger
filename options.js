@@ -2,6 +2,19 @@
 
 const ALIASES_PATH = "src/assets/data/problemAliases.json";
 
+// System-enforced domains (not user-editable)
+const SYSTEM_EXCLUSION_LIST = [
+  "leetcode.com",
+  "neetcode.io",
+  "accounts.google.com"
+];
+
+// Default user-editable exclusion list (examples)
+const DEFAULT_USER_EXCLUSION_LIST = [
+  "github.com",
+  "linkedin.com"
+];
+
 const problemSetSelect = document.getElementById("problemSetSelect");
 const totalProblems = document.getElementById("totalProblems");
 const totalCategories = document.getElementById("totalCategories");
@@ -14,6 +27,12 @@ const celebrationToggle = document.getElementById("celebrationToggle");
 const sortByDifficultyToggle = document.getElementById("sortByDifficultyToggle");
 const clearEditorOnFirstOpenToggle = document.getElementById("clearEditorOnFirstOpenToggle");
 const randomProblemSelectionToggle = document.getElementById("randomProblemSelectionToggle");
+const exclusionListContainer = document.getElementById("exclusionListContainer");
+const exclusionDomainInput = document.getElementById("exclusionDomainInput");
+const addExclusionButton = document.getElementById("addExclusionButton");
+const resetExclusionButton = document.getElementById("resetExclusionButton");
+const exclusionError = document.getElementById("exclusionError");
+const exclusionCount = document.getElementById("exclusionCount");
 
 // Load aliases for NeetCode URL resolution
 let problemAliases = {};
@@ -344,11 +363,258 @@ function createCategoryAccordionItem(category) {
   return div;
 }
 
+// ============================================================================
+// EXCLUSION LIST MANAGEMENT
+// ============================================================================
+
+/**
+ * Validate domain format
+ * @param {string} domain - Domain to validate
+ * @returns {Object} { valid: boolean, error: string }
+ */
+function validateDomain(domain) {
+  if (!domain || typeof domain !== 'string') {
+    return { valid: false, error: 'Domain is required' };
+  }
+  
+  const trimmed = domain.trim();
+  
+  if (trimmed.length === 0) {
+    return { valid: false, error: 'Domain cannot be empty' };
+  }
+  
+  // Basic domain validation regex
+  // Allows: subdomain.example.com, example.com, example.co.uk
+  // Does not allow: http://, https://, paths, etc.
+  const domainRegex = /^[a-zA-Z0-9]([a-zA-Z0-9-_.]*[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-_.]*[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
+  
+  if (!domainRegex.test(trimmed)) {
+    return { valid: false, error: 'Invalid domain format. Use format like: example.com' };
+  }
+  
+  return { valid: true, error: null };
+}
+
+/**
+ * Load user exclusion list from storage
+ * @returns {Promise<Array<string>>}
+ */
+async function loadExclusionList() {
+  try {
+    const result = await chrome.storage.sync.get(['userExclusionList']);
+    let userExclusionList = result.userExclusionList;
+    
+    // If no exclusion list exists, initialize with defaults
+    if (!Array.isArray(userExclusionList) || userExclusionList.length === 0) {
+      userExclusionList = [...DEFAULT_USER_EXCLUSION_LIST];
+      await saveExclusionList(userExclusionList);
+    }
+    
+    return userExclusionList;
+  } catch (error) {
+    console.error("Failed to load exclusion list:", error);
+    return [...DEFAULT_USER_EXCLUSION_LIST];
+  }
+}
+
+/**
+ * Save user exclusion list to storage
+ * @param {Array<string>} userExclusionList - List of user-editable domains
+ * @returns {Promise<void>}
+ */
+async function saveExclusionList(userExclusionList) {
+  try {
+    await chrome.storage.sync.set({ userExclusionList });
+    console.log("User exclusion list saved:", userExclusionList);
+    
+    // Notify background script to update redirect rule
+    await chrome.runtime.sendMessage({ type: "REFRESH_STATUS" });
+  } catch (error) {
+    console.error("Failed to save exclusion list:", error);
+    throw error;
+  }
+}
+
+/**
+ * Render system exclusion list (read-only)
+ */
+function renderSystemExclusionList() {
+  const systemContainer = document.getElementById('systemExclusionList');
+  systemContainer.innerHTML = '';
+  
+  SYSTEM_EXCLUSION_LIST.forEach((domain) => {
+    const item = document.createElement('div');
+    item.className = 'exclusion-list-item exclusion-list-item-system';
+    
+    const domainSpan = document.createElement('span');
+    domainSpan.className = 'exclusion-domain';
+    domainSpan.textContent = domain;
+    
+    const lockIcon = document.createElement('span');
+    lockIcon.className = 'exclusion-lock-icon';
+    lockIcon.textContent = '🔒';
+    lockIcon.title = 'System domain (required)';
+    
+    item.appendChild(domainSpan);
+    item.appendChild(lockIcon);
+    systemContainer.appendChild(item);
+  });
+}
+
+/**
+ * Render user exclusion list UI
+ * @param {Array<string>} userExclusionList - List of user-editable domains
+ */
+function renderExclusionList(userExclusionList) {
+  exclusionListContainer.innerHTML = '';
+  
+  if (userExclusionList.length === 0) {
+    exclusionListContainer.innerHTML = '<p class="no-data">No custom domains added. Add domains above to exclude them from redirection.</p>';
+    exclusionCount.textContent = '0';
+    return;
+  }
+  
+  userExclusionList.forEach((domain, index) => {
+    const item = document.createElement('div');
+    item.className = 'exclusion-list-item';
+    
+    const domainSpan = document.createElement('span');
+    domainSpan.className = 'exclusion-domain';
+    domainSpan.textContent = domain;
+    
+    const removeButton = document.createElement('button');
+    removeButton.className = 'exclusion-remove-button';
+    removeButton.textContent = 'Remove';
+    removeButton.title = 'Remove this domain';
+    removeButton.addEventListener('click', () => removeExclusionDomain(index));
+    
+    item.appendChild(domainSpan);
+    item.appendChild(removeButton);
+    exclusionListContainer.appendChild(item);
+  });
+  
+  exclusionCount.textContent = userExclusionList.length.toString();
+}
+
+/**
+ * Add domain to exclusion list
+ */
+async function addExclusionDomain() {
+  const domain = exclusionDomainInput.value.trim();
+  
+  // Clear previous errors
+  exclusionError.style.display = 'none';
+  exclusionError.textContent = '';
+  
+  // Validate domain
+  const validation = validateDomain(domain);
+  if (!validation.valid) {
+    exclusionError.textContent = validation.error;
+    exclusionError.style.display = 'block';
+    return;
+  }
+  
+  // Load current list
+  const exclusionList = await loadExclusionList();
+  
+  // Check for duplicates (case-insensitive) - check both user list and system list
+  const domainLower = domain.toLowerCase();
+  if (exclusionList.some(d => d.toLowerCase() === domainLower)) {
+    exclusionError.textContent = 'This domain is already in your exclusion list';
+    exclusionError.style.display = 'block';
+    return;
+  }
+  
+  // Check against system domains
+  if (SYSTEM_EXCLUSION_LIST.some(d => d.toLowerCase() === domainLower)) {
+    exclusionError.textContent = 'This domain is already excluded (system domain)';
+    exclusionError.style.display = 'block';
+    return;
+  }
+  
+  // Check max limit
+  if (exclusionList.length >= 10) {
+    exclusionError.textContent = 'Maximum of 10 domains allowed';
+    exclusionError.style.display = 'block';
+    return;
+  }
+  
+  // Add domain
+  exclusionList.push(domain);
+  await saveExclusionList(exclusionList);
+  
+  // Update UI
+  renderExclusionList(exclusionList);
+  exclusionDomainInput.value = '';
+}
+
+/**
+ * Remove domain from exclusion list
+ * @param {number} index - Index of domain to remove
+ */
+async function removeExclusionDomain(index) {
+  const exclusionList = await loadExclusionList();
+  
+  if (index >= 0 && index < exclusionList.length) {
+    exclusionList.splice(index, 1);
+    await saveExclusionList(exclusionList);
+    renderExclusionList(exclusionList);
+  }
+}
+
+/**
+ * Reset exclusion list to defaults
+ */
+async function resetExclusionList() {
+  if (!confirm('Reset to default domains? This will replace your current custom domains with: ' + DEFAULT_USER_EXCLUSION_LIST.join(', '))) {
+    return;
+  }
+  
+  const defaultList = [...DEFAULT_USER_EXCLUSION_LIST];
+  await saveExclusionList(defaultList);
+  renderExclusionList(defaultList);
+  
+  // Clear any errors
+  exclusionError.style.display = 'none';
+  exclusionError.textContent = '';
+}
+
+/**
+ * Initialize exclusion list UI
+ */
+async function initializeExclusionList() {
+  // Render system domains (read-only)
+  renderSystemExclusionList();
+  
+  // Load and render user domains
+  const userExclusionList = await loadExclusionList();
+  renderExclusionList(userExclusionList);
+  
+  // Add event listeners
+  addExclusionButton.addEventListener('click', addExclusionDomain);
+  resetExclusionButton.addEventListener('click', resetExclusionList);
+  
+  // Allow Enter key to add domain
+  exclusionDomainInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      addExclusionDomain();
+    }
+  });
+  
+  // Clear error on input
+  exclusionDomainInput.addEventListener('input', () => {
+    if (exclusionError.style.display === 'block') {
+      exclusionError.style.display = 'none';
+    }
+  });
+}
+
 // Initialize on load
 document.addEventListener("DOMContentLoaded", async () => {
   await loadAliases();
   loadSettings();
   renderCategoryAccordion();
+  await initializeExclusionList();
   
   // Listen for storage changes (e.g., when daily problem is solved)
   chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -356,6 +622,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Daily problem solved, refresh the display to show updated progress
       loadSettings();
       renderCategoryAccordion();
+    }
+    if (areaName === 'sync' && changes.userExclusionList) {
+      // User exclusion list changed, refresh UI
+      loadExclusionList().then(renderExclusionList);
     }
   });
 });

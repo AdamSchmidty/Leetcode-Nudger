@@ -31,6 +31,14 @@ chrome.runtime.onStartup.addListener(async () => {
 // Set up message listener
 setupMessageListener();
 
+// Listen for exclusion list changes and update redirect rule
+chrome.storage.onChanged.addListener(async (changes, areaName) => {
+  if (areaName === 'sync' && changes.userExclusionList) {
+    console.log("User exclusion list changed, updating redirect rule");
+    await checkAndRestoreRedirect();
+  }
+});
+
 // Periodic checks (every minute)
 // Check for daily reset and restore redirects if bypass/daily solve expired
 setInterval(async () => {

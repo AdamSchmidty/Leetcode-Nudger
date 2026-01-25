@@ -134,6 +134,117 @@ describe('messageHandler.js', () => {
       const response = sendResponse.mock.calls[0][0];
       expect(response.dailySolved).toBe(false);
     });
+
+    it('should add solved problem to solvedProblems list in storage', async () => {
+      const message = {
+        type: 'PROBLEM_SOLVED',
+        slug: 'two-sum',
+        timestamp: Math.floor(Date.now() / 1000),
+        verifiedToday: true
+      };
+      
+      // Mock initial state with empty solvedProblems
+      chrome.storage.sync.get.mockResolvedValue({
+        solvedProblems: [],
+        selectedProblemSet: 'neetcode250',
+        positions: {
+          neetcode250: { categoryIndex: 0, problemIndex: 0 }
+        }
+      });
+      
+      const sendResponse = jest.fn();
+      
+      // Mock problem set load
+      global.fetch.mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({
+          categories: [{
+            name: 'Arrays & Hashing',
+            problems: [
+              { slug: 'two-sum', leetcodeId: 1, title: 'Two Sum', difficulty: 'Easy' },
+              { slug: 'valid-anagram', leetcodeId: 242, title: 'Valid Anagram', difficulty: 'Easy' }
+            ]
+          }]
+        })
+      });
+      
+      // Mock LeetCode API for fetchAllProblemStatuses (returns empty, no problems solved yet)
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          stat_status_pairs: []
+        })
+      });
+      
+      await messageHandler.handleMessage(message, {}, sendResponse);
+      
+      // Verify solvedProblems was updated in storage
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          solvedProblems: expect.arrayContaining(['two-sum'])
+        })
+      );
+      
+      // Verify response indicates success
+      const response = sendResponse.mock.calls[0][0];
+      expect(response.success).toBe(true);
+      expect(response.dailySolved).toBe(true);
+    });
+
+    it('should add solved problem to existing solvedProblems list without duplicates', async () => {
+      const message = {
+        type: 'PROBLEM_SOLVED',
+        slug: 'valid-anagram',
+        timestamp: Math.floor(Date.now() / 1000),
+        verifiedToday: true
+      };
+      
+      // Mock initial state with one existing solved problem
+      chrome.storage.sync.get.mockResolvedValue({
+        solvedProblems: ['two-sum'],
+        selectedProblemSet: 'neetcode250',
+        positions: {
+          neetcode250: { categoryIndex: 0, problemIndex: 1 }
+        }
+      });
+      
+      const sendResponse = jest.fn();
+      
+      // Mock problem set load
+      global.fetch.mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({
+          categories: [{
+            name: 'Arrays & Hashing',
+            problems: [
+              { slug: 'two-sum', leetcodeId: 1, title: 'Two Sum', difficulty: 'Easy' },
+              { slug: 'valid-anagram', leetcodeId: 242, title: 'Valid Anagram', difficulty: 'Easy' }
+            ]
+          }]
+        })
+      });
+      
+      // Mock LeetCode API for fetchAllProblemStatuses
+      global.fetch.mockResolvedValueOnce({
+        ok: true,
+        json: jest.fn().mockResolvedValue({
+          stat_status_pairs: []
+        })
+      });
+      
+      await messageHandler.handleMessage(message, {}, sendResponse);
+      
+      // Verify solvedProblems contains both problems
+      expect(chrome.storage.sync.set).toHaveBeenCalledWith(
+        expect.objectContaining({
+          solvedProblems: expect.arrayContaining(['two-sum', 'valid-anagram'])
+        })
+      );
+      
+      // Verify no duplicates (should have exactly 2 items)
+      const setCall = chrome.storage.sync.set.mock.calls.find(call => 
+        call[0].solvedProblems
+      );
+      expect(setCall[0].solvedProblems).toHaveLength(2);
+    });
   });
 
   describe('handleMessage - GET_STATUS', () => {

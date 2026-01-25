@@ -4,7 +4,7 @@
 // Handles declarativeNetRequest rules, bypass management, and daily reset
 // ============================================================================
 
-import { WHITELIST, REDIRECT_RULE_ID, BYPASS_DURATION_MS, COOLDOWN_DURATION_MS } from '../shared/constants.js';
+import { getExclusionList, REDIRECT_RULE_ID, BYPASS_DURATION_MS, COOLDOWN_DURATION_MS } from '../shared/constants.js';
 import { getDailySolveState, clearDailySolve, getBypassState, setBypassState } from './storage.js';
 import { loadProblemSet, getProblemSet } from './problemLogic.js';
 import { getState } from './storage.js';
@@ -43,6 +43,9 @@ export async function installRedirectRule() {
 
   const targetUrl = `https://leetcode.com/problems/${problem.slug}/`;
 
+  // Get exclusion list from storage (with fallback to defaults)
+  const exclusionList = await getExclusionList();
+
   const rule = {
     id: REDIRECT_RULE_ID,
     priority: 1,
@@ -53,7 +56,7 @@ export async function installRedirectRule() {
     condition: {
       urlFilter: "|http",
       resourceTypes: ["main_frame"],
-      excludedRequestDomains: WHITELIST,
+      excludedRequestDomains: exclusionList,
     },
   };
 

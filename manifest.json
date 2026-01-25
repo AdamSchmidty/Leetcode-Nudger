@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Leetcode Buddy",
   "version": "2.0.0",
-  "description": "Your daily LeetCode companion! Focuses on NeetCode 250 problems organized by category. Only allows neetcode.io, leetcode.com, and chatgpt.com. Solve one problem per day to unlock all sites until midnight!",
+  "description": "Your daily LeetCode companion! Solve leetcode problems of your chosen category. Solve one problem per day to unlock all sites until midnight!",
   "permissions": [
     "storage",
     "declarativeNetRequest",
