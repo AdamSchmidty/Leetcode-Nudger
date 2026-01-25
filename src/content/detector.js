@@ -9,6 +9,37 @@ import { getCurrentSlug, resolveAlias, queryProblemStatus, getCurrentUsername, q
 import { showSolvedNotification } from './ui.js';
 
 /**
+ * Check if we should skip solve detection for the current problem
+ * Returns true if this problem was already solved today
+ * @returns {Promise<boolean>}
+ */
+export async function shouldSkipSolveCheck() {
+  try {
+    const slug = getCurrentSlug();
+    if (!slug) {
+      return false; // Not on a problem page, don't skip
+    }
+    
+    const canonicalSlug = resolveAlias(slug);
+    
+    // Check if this problem was already solved today
+    const dailyState = await chrome.storage.local.get(['dailySolveDate', 'dailySolveProblem']);
+    const today = new Date().toISOString().split("T")[0];
+    
+    // If daily solve was today and it's the same problem, skip check
+    if (dailyState.dailySolveDate === today && 
+        dailyState.dailySolveProblem === canonicalSlug) {
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error("Error checking if should skip:", error);
+    return false; // On error, don't skip (fail open)
+  }
+}
+
+/**
  * Safe message sending with context validation
  * @param {Object} message - Message object to send to background script
  * @returns {Promise<Object>} Response from background script
@@ -40,6 +71,11 @@ export async function sendMessageSafely(message) {
  * and is the expected problem in the sequence
  */
 export async function checkAndNotify() {
+  // Early return if this problem was already solved today
+  if (await shouldSkipSolveCheck()) {
+    return; // Already solved today, skip check
+  }
+  
   const slug = getCurrentSlug();
   if (!slug) {
     console.log("No problem slug found in URL");
@@ -162,4 +198,5 @@ export async function checkAndNotify() {
     }
   }
 }
+
 

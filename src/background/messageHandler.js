@@ -103,6 +103,14 @@ async function handleProblemSolved(message) {
     // Mark daily solve with problem slug
     await storage.markDailySolve(message.slug);
     
+    // Add problem to solved problems list
+    const state = await storage.getState();
+    const solvedProblems = new Set(state.solvedProblems || []);
+    solvedProblems.add(message.slug);
+    await chrome.storage.sync.set({
+      solvedProblems: Array.from(solvedProblems)
+    });
+    
     // Remove redirect rule to unblock websites
     await redirects.removeRedirectRule();
 

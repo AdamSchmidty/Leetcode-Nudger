@@ -252,59 +252,117 @@ export async function computeNextProblem(syncAllSolved = false) {
   }
 
   // Check if sorting by difficulty is enabled
-  const settings = await chrome.storage.sync.get(['sortByDifficulty']);
+  const settings = await chrome.storage.sync.get(['sortByDifficulty', 'randomProblemSelection']);
   const sortByDifficulty = settings.sortByDifficulty === true;
+  const randomProblemSelection = settings.randomProblemSelection === true;
 
-  // Second pass: Find first unsolved problem in order, starting from saved position
-  for (let catIdx = startCategoryIndex; catIdx < problemSet.categories.length; catIdx++) {
-    const category = problemSet.categories[catIdx];
+  // If random selection is enabled, collect all unsolved problems and pick one randomly
+  if (randomProblemSelection) {
+    const unsolvedProblems = [];
     
-    // Get problems, sorted if needed
-    let problemsToCheck = category.problems;
-    if (sortByDifficulty) {
-      problemsToCheck = sortProblemsByDifficulty(category.problems);
+    // Collect all unsolved problems with their category and original index
+    for (let catIdx = 0; catIdx < problemSet.categories.length; catIdx++) {
+      const category = problemSet.categories[catIdx];
+      
+      for (let probIdx = 0; probIdx < category.problems.length; probIdx++) {
+        const problem = category.problems[probIdx];
+        
+        if (!solvedProblems.has(problem.slug)) {
+          unsolvedProblems.push({
+            problem: problem,
+            categoryIndex: catIdx,
+            problemIndex: probIdx,
+            category: category
+          });
+        }
+      }
     }
     
-    // Start from saved problem index if we're on the starting category
-    const startIdx = (catIdx === startCategoryIndex) ? startProblemIndex : 0;
-    
-    for (let probIdx = startIdx; probIdx < problemsToCheck.length; probIdx++) {
-      const problem = problemsToCheck[probIdx];
+    // If there are unsolved problems, pick one randomly
+    if (unsolvedProblems.length > 0) {
+      const randomIndex = Math.floor(Math.random() * unsolvedProblems.length);
+      const selected = unsolvedProblems[randomIndex];
       
-      if (!solvedProblems.has(problem.slug)) {
-        // Found first unsolved problem
-        // Find original index if sorted
-        let originalProbIdx = probIdx;
-        if (sortByDifficulty) {
-          originalProbIdx = category.problems.findIndex(p => p.slug === problem.slug);
+      currentCategoryIndex = selected.categoryIndex;
+      currentProblemIndex = selected.problemIndex;
+      currentProblemSlug = selected.problem.slug;
+      
+      // Save position for the selected set (still track position for compatibility)
+      await saveState(selected.categoryIndex, selected.problemIndex, solvedProblems, selectedProblemSet);
+      
+      const totalProblems = problemSet.categories.reduce(
+        (sum, cat) => sum + cat.problems.length,
+        0
+      );
+      
+      // Count only solved problems that are in the current problem set
+      const solvedCount = problemSet.categories.reduce((count, cat) => {
+        return count + cat.problems.filter(p => solvedProblems.has(p.slug)).length;
+      }, 0);
+      
+      return {
+        categoryIndex: selected.categoryIndex,
+        categoryName: selected.category.name,
+        problemIndex: selected.problemIndex,
+        problem: selected.problem,
+        totalProblems: totalProblems,
+        solvedCount: solvedCount,
+        categoryProgress: computeCategoryProgress(selected.category, solvedProblems),
+      };
+    }
+    // If no unsolved problems, fall through to "all solved" logic below
+  } else {
+    // Sequential selection: Find first unsolved problem in order, starting from saved position
+    for (let catIdx = startCategoryIndex; catIdx < problemSet.categories.length; catIdx++) {
+      const category = problemSet.categories[catIdx];
+      
+      // Get problems, sorted if needed
+      let problemsToCheck = category.problems;
+      if (sortByDifficulty) {
+        problemsToCheck = sortProblemsByDifficulty(category.problems);
+      }
+      
+      // Start from saved problem index if we're on the starting category
+      const startIdx = (catIdx === startCategoryIndex) ? startProblemIndex : 0;
+      
+      for (let probIdx = startIdx; probIdx < problemsToCheck.length; probIdx++) {
+        const problem = problemsToCheck[probIdx];
+        
+        if (!solvedProblems.has(problem.slug)) {
+          // Found first unsolved problem
+          // Find original index if sorted
+          let originalProbIdx = probIdx;
+          if (sortByDifficulty) {
+            originalProbIdx = category.problems.findIndex(p => p.slug === problem.slug);
+          }
+          
+          currentCategoryIndex = catIdx;
+          currentProblemIndex = originalProbIdx;
+          currentProblemSlug = problem.slug;
+          
+          // Save position for the selected set only
+          await saveState(catIdx, originalProbIdx, solvedProblems, selectedProblemSet);
+          
+          const totalProblems = problemSet.categories.reduce(
+            (sum, cat) => sum + cat.problems.length,
+            0
+          );
+          
+          // Count only solved problems that are in the current problem set
+          const solvedCount = problemSet.categories.reduce((count, cat) => {
+            return count + cat.problems.filter(p => solvedProblems.has(p.slug)).length;
+          }, 0);
+          
+          return {
+            categoryIndex: catIdx,
+            categoryName: category.name,
+            problemIndex: originalProbIdx,
+            problem: problem,
+            totalProblems: totalProblems,
+            solvedCount: solvedCount,
+            categoryProgress: computeCategoryProgress(category, solvedProblems),
+          };
         }
-        
-        currentCategoryIndex = catIdx;
-        currentProblemIndex = originalProbIdx;
-        currentProblemSlug = problem.slug;
-        
-        // Save position for the selected set only
-        await saveState(catIdx, originalProbIdx, solvedProblems, selectedProblemSet);
-        
-        const totalProblems = problemSet.categories.reduce(
-          (sum, cat) => sum + cat.problems.length,
-          0
-        );
-        
-        // Count only solved problems that are in the current problem set
-        const solvedCount = problemSet.categories.reduce((count, cat) => {
-          return count + cat.problems.filter(p => solvedProblems.has(p.slug)).length;
-        }, 0);
-        
-        return {
-          categoryIndex: catIdx,
-          categoryName: category.name,
-          problemIndex: originalProbIdx,
-          problem: problem,
-          totalProblems: totalProblems,
-          solvedCount: solvedCount,
-          categoryProgress: computeCategoryProgress(category, solvedProblems),
-        };
       }
     }
   }

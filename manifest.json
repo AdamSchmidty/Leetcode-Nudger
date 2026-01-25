@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Leetcode Buddy",
   "version": "2.0.0",
-  "description": "Your daily LeetCode companion! Focuses on NeetCode 250 problems organized by category. Only allows neetcode.io, leetcode.com, and chatgpt.com. Solve one problem per day to unlock all sites until midnight!",
+  "description": "Your daily LeetCode companion! Solve leetcode problems of your chosen category. Solve one problem per day to unlock all sites until midnight!",
   "permissions": [
     "storage",
     "declarativeNetRequest",
@@ -50,7 +50,12 @@
         "src/assets/data/blind75.json",
         "src/assets/data/neetcode150.json",
         "src/assets/data/neetcodeAll.json",
-        "src/assets/data/problemAliases.json"
+        "src/assets/data/problemAliases.json",
+        "src/content/api.js",
+        "src/content/detector.js",
+        "src/content/editor.js",
+        "src/content/ui.js",
+        "src/shared/constants.js"
       ],
       "matches": [
         "<all_urls>"

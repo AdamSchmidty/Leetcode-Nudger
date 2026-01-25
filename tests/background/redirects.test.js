@@ -25,7 +25,12 @@ describe('redirects.js', () => {
     chrome.storage.sync.get.mockResolvedValue({
       currentCategoryIndex: 0,
       currentProblemIndex: 0,
-      solvedProblems: []
+      solvedProblems: [],
+      selectedProblemSet: 'neetcode250',
+      userExclusionList: ['github.com', 'linkedin.com'],
+      positions: {
+        neetcode250: { categoryIndex: 0, problemIndex: 0 }
+      }
     });
     chrome.declarativeNetRequest.updateDynamicRules.mockResolvedValue();
     
@@ -57,14 +62,27 @@ describe('redirects.js', () => {
     });
 
     it('should exclude whitelisted domains from redirect', async () => {
+      // Mock user exclusion list (defaults: github.com, linkedin.com)
+      chrome.storage.sync.get.mockResolvedValue({
+        currentCategoryIndex: 0,
+        currentProblemIndex: 0,
+        solvedProblems: [],
+        userExclusionList: ['github.com', 'linkedin.com']
+      });
+      
       await redirects.installRedirectRule();
       
       const call = chrome.declarativeNetRequest.updateDynamicRules.mock.calls[0][0];
       const rule = call.addRules[0];
       
+      // System domains (always excluded)
       expect(rule.condition.excludedRequestDomains).toContain('leetcode.com');
       expect(rule.condition.excludedRequestDomains).toContain('neetcode.io');
-      expect(rule.condition.excludedRequestDomains).toContain('chatgpt.com');
+      expect(rule.condition.excludedRequestDomains).toContain('accounts.google.com');
+      
+      // User domains (from storage)
+      expect(rule.condition.excludedRequestDomains).toContain('github.com');
+      expect(rule.condition.excludedRequestDomains).toContain('linkedin.com');
     });
 
     it('should redirect to current problem URL', async () => {
