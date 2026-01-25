@@ -169,19 +169,36 @@ async function handleGetDetailedProgress() {
   const problemSet = problemLogic.getProblemSet();
   const state = await storage.getState();
   
-  const categories = problemSet.categories.map((cat, catIdx) => ({
-    name: cat.name,
-    total: cat.problems.length,
-    solved: cat.problems.filter(p => state.solvedProblems.has(p.slug)).length,
-    problems: cat.problems.map((p, probIdx) => ({
-      slug: p.slug,
-      title: p.title,
-      difficulty: p.difficulty,
-      solved: state.solvedProblems.has(p.slug),
-      isCurrent: catIdx === state.currentCategoryIndex && 
-                 probIdx === state.currentProblemIndex
-    }))
-  }));
+  // Get current problem slug for isCurrent comparison
+  const currentCategory = problemSet.categories[state.currentCategoryIndex];
+  const currentProblem = currentCategory?.problems[state.currentProblemIndex];
+  const currentProblemSlug = currentProblem?.slug || null;
+  
+  // Check if sorting by difficulty is enabled
+  const settings = await chrome.storage.sync.get(['sortByDifficulty']);
+  const sortByDifficulty = settings.sortByDifficulty === true;
+  
+  const categories = problemSet.categories.map((cat, catIdx) => {
+    // Get problems, sorted if needed
+    let problems = cat.problems;
+    if (sortByDifficulty) {
+      problems = problemLogic.sortProblemsByDifficulty(cat.problems);
+    }
+    
+    return {
+      name: cat.name,
+      total: cat.problems.length,
+      solved: cat.problems.filter(p => state.solvedProblems.has(p.slug)).length,
+      problems: problems.map((p) => ({
+        slug: p.slug,
+        title: p.title,
+        difficulty: p.difficulty,
+        solved: state.solvedProblems.has(p.slug),
+        // Use slug-based comparison for isCurrent to work with sorting
+        isCurrent: p.slug === currentProblemSlug
+      }))
+    };
+  });
   
   return { success: true, categories };
 }
