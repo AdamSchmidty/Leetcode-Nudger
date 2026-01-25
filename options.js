@@ -12,6 +12,8 @@ const confirmReset = document.getElementById("confirmReset");
 const cancelReset = document.getElementById("cancelReset");
 const celebrationToggle = document.getElementById("celebrationToggle");
 const sortByDifficultyToggle = document.getElementById("sortByDifficultyToggle");
+const clearEditorOnFirstOpenToggle = document.getElementById("clearEditorOnFirstOpenToggle");
+const randomProblemSelectionToggle = document.getElementById("randomProblemSelectionToggle");
 
 // Load aliases for NeetCode URL resolution
 let problemAliases = {};
@@ -86,7 +88,9 @@ async function loadSettings() {
       const result = await chrome.storage.sync.get([
         "selectedProblemSet",
         "celebrationEnabled",
-        "sortByDifficulty"
+        "sortByDifficulty",
+        "clearEditorOnFirstOpen",
+        "randomProblemSelection"
       ]);
       const selectedSet = result.selectedProblemSet || "neetcode250";
       problemSetSelect.value = selectedSet;
@@ -98,6 +102,14 @@ async function loadSettings() {
       // Load sort by difficulty toggle setting (default: false)
       const sortByDifficulty = result.sortByDifficulty === true;
       sortByDifficultyToggle.checked = sortByDifficulty;
+      
+      // Load clear editor on first open toggle setting (default: false)
+      const clearEditorOnFirstOpen = result.clearEditorOnFirstOpen === true;
+      clearEditorOnFirstOpenToggle.checked = clearEditorOnFirstOpen;
+      
+      // Load random problem selection toggle setting (default: false)
+      const randomProblemSelection = result.randomProblemSelection === true;
+      randomProblemSelectionToggle.checked = randomProblemSelection;
     }
   } catch (error) {
     console.error("Failed to load settings:", error);
@@ -191,6 +203,36 @@ sortByDifficultyToggle.addEventListener("change", async () => {
     await loadSettings();
   } catch (error) {
     console.error("Failed to save sort by difficulty setting:", error);
+  }
+});
+
+// Handle clear editor on first open toggle
+clearEditorOnFirstOpenToggle.addEventListener("change", async () => {
+  const enabled = clearEditorOnFirstOpenToggle.checked;
+  
+  try {
+    await chrome.storage.sync.set({ clearEditorOnFirstOpen: enabled });
+    console.log("Clear editor on first open:", enabled ? "enabled" : "disabled");
+  } catch (error) {
+    console.error("Failed to save clear editor on first open setting:", error);
+  }
+});
+
+// Handle random problem selection toggle
+randomProblemSelectionToggle.addEventListener("change", async () => {
+  const enabled = randomProblemSelectionToggle.checked;
+  
+  try {
+    await chrome.storage.sync.set({ randomProblemSelection: enabled });
+    console.log("Random problem selection:", enabled ? "enabled" : "disabled");
+    
+    // Recompute next problem to reflect the new selection mode
+    await chrome.runtime.sendMessage({ type: "REFRESH_STATUS" });
+    
+    // Reload settings to show updated current problem
+    await loadSettings();
+  } catch (error) {
+    console.error("Failed to save random problem selection setting:", error);
   }
 });
 
@@ -307,5 +349,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   await loadAliases();
   loadSettings();
   renderCategoryAccordion();
+  
+  // Listen for storage changes (e.g., when daily problem is solved)
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.dailySolveDate) {
+      // Daily problem solved, refresh the display to show updated progress
+      loadSettings();
+      renderCategoryAccordion();
+    }
+  });
 });
 

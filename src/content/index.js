@@ -53,13 +53,63 @@ const observer = new MutationObserver((mutations) => {
     // Chrome extensions support dynamic imports for ES modules in content scripts
     const apiModule = await import(chrome.runtime.getURL('src/content/api.js'));
     const detectorModule = await import(chrome.runtime.getURL('src/content/detector.js'));
+    const editorModule = await import(chrome.runtime.getURL('src/content/editor.js'));
     
     // Extract functions
-    const { loadAliases } = apiModule;
+    const { loadAliases, getCurrentSlug } = apiModule;
     checkAndNotify = detectorModule.checkAndNotify;
+    const { clearEditor } = editorModule;
     
     // Load problem aliases
     await loadAliases();
+    
+    // Function to handle editor clearing on first open
+    async function handleEditorClearing() {
+      try {
+        // Check if setting is enabled
+        const syncResult = await chrome.storage.sync.get(['clearEditorOnFirstOpen']);
+        const isEnabled = syncResult.clearEditorOnFirstOpen === true;
+        
+        if (!isEnabled) {
+          return; // Setting disabled, skip
+        }
+        
+        // Get current problem slug
+        const slug = getCurrentSlug();
+        if (!slug) {
+          return; // Not on a problem page
+        }
+        
+        // Check if this is the first open today
+        const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+        const key = `problemFirstOpened_${slug}`;
+        const localResult = await chrome.storage.local.get([key]);
+        const storedDate = localResult[key];
+        
+        const isFirstOpen = storedDate !== today;
+        
+        if (isFirstOpen) {
+          console.log(`First time opening ${slug} today, clearing editor...`);
+          
+          // Mark as opened immediately to prevent multiple attempts
+          await chrome.storage.local.set({ [key]: today });
+          
+          // Clear the editor (with delay to ensure editor is loaded)
+          setTimeout(async () => {
+            const cleared = await clearEditor();
+            if (cleared) {
+              console.log(`Editor cleared successfully for ${slug}`);
+            } else {
+              console.warn(`Editor clearing failed for ${slug}, but problem marked as opened`);
+            }
+          }, 2000); // Wait 2 seconds for editor to initialize
+        } else {
+          console.log(`Problem ${slug} already opened today, preserving editor content`);
+        }
+      } catch (error) {
+        console.error("Error in editor clearing handler:", error);
+      }
+    }
     
     // Start observing the document for changes
     observer.observe(document.body, {
@@ -74,6 +124,9 @@ const observer = new MutationObserver((mutations) => {
           console.log("URL changed, checking new problem...");
           lastPathname = window.location.pathname;
           hasCheckedOnLoad = false;
+
+          // Handle editor clearing on problem change
+          handleEditorClearing();
 
           // Check after a delay to let the page load
           setTimeout(() => {
@@ -91,6 +144,9 @@ const observer = new MutationObserver((mutations) => {
     // Initial check when content script loads
     setTimeout(() => {
       try {
+        // Handle editor clearing on initial load
+        handleEditorClearing();
+        
         if (!hasCheckedOnLoad && checkAndNotify) {
           console.log("Initial problem status check...");
           checkAndNotify();

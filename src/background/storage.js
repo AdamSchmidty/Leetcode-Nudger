@@ -232,3 +232,46 @@ export async function resetAllPositions() {
   await chrome.storage.sync.set({ positions });
 }
 
+/**
+ * Get the date when a problem was first opened today
+ * @param {string} problemSlug - Problem slug
+ * @returns {Promise<string|null>} Date string (YYYY-MM-DD) or null if not opened today
+ */
+export async function getProblemFirstOpenDate(problemSlug) {
+  const key = `problemFirstOpened_${problemSlug}`;
+  const result = await chrome.storage.local.get([key]);
+  const storedDate = result[key];
+  
+  if (!storedDate) {
+    return null;
+  }
+  
+  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  
+  // Return the date if it's today, otherwise null
+  return storedDate === today ? storedDate : null;
+}
+
+/**
+ * Check if this is the first time opening a problem today
+ * @param {string} problemSlug - Problem slug
+ * @returns {Promise<boolean>} True if this is the first open today
+ */
+export async function isFirstOpenToday(problemSlug) {
+  const firstOpenDate = await getProblemFirstOpenDate(problemSlug);
+  return firstOpenDate === null;
+}
+
+/**
+ * Mark a problem as opened for today
+ * @param {string} problemSlug - Problem slug
+ * @returns {Promise<void>}
+ */
+export async function markProblemFirstOpened(problemSlug) {
+  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  const key = `problemFirstOpened_${problemSlug}`;
+  
+  await chrome.storage.local.set({ [key]: today });
+  console.log(`Problem ${problemSlug} marked as first opened on ${today}`);
+}
+

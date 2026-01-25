@@ -141,43 +141,14 @@ describe('ui.js', () => {
     });
   });
 
-  describe('showSolvedNotification', () => {
-    it('should create notification banner', async () => {
-      chrome.storage.sync.get.mockResolvedValue({
-        celebrationEnabled: false // Disable celebration to test notification only
-      });
-      
-      await ui.showSolvedNotification();
-      
-      // Find notification by text content
-      const notifications = Array.from(document.querySelectorAll('div')).filter(
-        div => div.textContent?.includes('Amazing! Daily Problem Solved!')
-      );
-      expect(notifications.length).toBeGreaterThan(0);
-    });
-
-    it('should display success message', async () => {
-      chrome.storage.sync.get.mockResolvedValue({
-        celebrationEnabled: false
-      });
-      
-      await ui.showSolvedNotification();
-      
-      // Find notification by text content
-      const notifications = Array.from(document.querySelectorAll('div')).filter(
-        div => div.textContent?.includes('Amazing! Daily Problem Solved!')
-      );
-      expect(notifications.length).toBeGreaterThan(0);
-      expect(notifications[0].textContent).toContain('Amazing! Daily Problem Solved!');
-    });
-
+  describe('showCelebration', () => {
     it('should trigger confetti when enabled and not shown today', async () => {
       chrome.storage.sync.get.mockResolvedValue({
         celebrationEnabled: true
       });
       chrome.storage.local.get.mockResolvedValue({});
       
-      await ui.showSolvedNotification();
+      await ui.showCelebration();
       
       const confetti = document.getElementById('leetcode-buddy-confetti');
       expect(confetti).toBeTruthy();
@@ -188,9 +159,9 @@ describe('ui.js', () => {
         celebrationEnabled: false
       });
       
-      await ui.showSolvedNotification();
+      await ui.showCelebration();
       
-      const confetti = document.querySelector('.leetcode-buddy-confetti');
+      const confetti = document.getElementById('leetcode-buddy-confetti');
       expect(confetti).toBeFalsy();
     });
 
@@ -200,7 +171,7 @@ describe('ui.js', () => {
       });
       chrome.storage.local.get.mockResolvedValue({});
       
-      await ui.showSolvedNotification();
+      await ui.showCelebration();
       
       expect(chrome.storage.local.set).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -209,64 +180,46 @@ describe('ui.js', () => {
       );
     });
 
-    it('should auto-remove notification after delay', async () => {
+    it('should not trigger confetti if already shown today', async () => {
+      const today = new Date().toISOString().split('T')[0];
       chrome.storage.sync.get.mockResolvedValue({
-        celebrationEnabled: false
+        celebrationEnabled: true
+      });
+      chrome.storage.local.get.mockResolvedValue({
+        celebrationShownDate: today
       });
       
-      await ui.showSolvedNotification();
-      const notification = document.getElementById('leetcode-buddy-notification');
-      expect(notification).toBeTruthy();
+      await ui.showCelebration();
       
-      // Check after 7 seconds (6s delay + 0.5s fade)
-      await new Promise(resolve => setTimeout(resolve, 7000));
-      
-      const removedNotification = document.getElementById('leetcode-buddy-notification');
-      expect(removedNotification).toBeFalsy();
-    }, 8000);
+      const confetti = document.getElementById('leetcode-buddy-confetti');
+      expect(confetti).toBeFalsy();
+    });
+  });
 
-    it('should style notification correctly', async () => {
+  describe('showSolvedNotification (deprecated)', () => {
+    it('should call showCelebration for backward compatibility', async () => {
       chrome.storage.sync.get.mockResolvedValue({
-        celebrationEnabled: false
+        celebrationEnabled: true
       });
+      chrome.storage.local.get.mockResolvedValue({});
       
       await ui.showSolvedNotification();
       
-      // Find notification by checking all divs (it doesn't have a class)
-      const notifications = Array.from(document.querySelectorAll('div')).filter(
-        div => div.textContent?.includes('Amazing! Daily Problem Solved!')
-      );
-      expect(notifications.length).toBeGreaterThan(0);
-      
-      const notification = notifications[0];
-      expect(notification.style.position).toBe('fixed');
-      expect(notification.style.zIndex).toBeTruthy();
+      // Should still trigger confetti (via showCelebration)
+      const confetti = document.getElementById('leetcode-buddy-confetti');
+      expect(confetti).toBeTruthy();
     });
   });
 
   describe('DOM Cleanup', () => {
     it('should not create duplicate confetti containers', () => {
       ui.triggerConfetti();
+      // Second call should be prevented by guard
       ui.triggerConfetti();
       
-      // Should still only have elements from first call (second one should clean up first)
+      // Should only have one container (second call should be skipped)
       const containers = Array.from(document.querySelectorAll('#leetcode-buddy-confetti'));
-      expect(containers.length).toBeLessThanOrEqual(2); // Allow some overlap during animation
-    });
-
-    it('should not create duplicate notification banners', async () => {
-      chrome.storage.sync.get.mockResolvedValue({
-        celebrationEnabled: false
-      });
-      
-      await ui.showSolvedNotification();
-      await ui.showSolvedNotification();
-      
-      // Find notifications by ID (each call creates a new notification with same ID)
-      // The implementation may remove the old one or keep both during animation
-      const notifications = Array.from(document.querySelectorAll('#leetcode-buddy-notification'));
-      // Allow up to 2 since there might be overlap during animation
-      expect(notifications.length).toBeLessThanOrEqual(2);
+      expect(containers.length).toBe(1);
     });
   });
 });

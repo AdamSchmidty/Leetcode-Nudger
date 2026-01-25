@@ -49,6 +49,12 @@ export async function markCelebrationAsShown() {
  * Trigger confetti animation (CSS-based, no external dependencies)
  */
 export function triggerConfetti() {
+  // Prevent duplicate confetti if one is already animating
+  if (document.getElementById('leetcode-buddy-confetti')) {
+    console.log("Confetti already animating, skipping duplicate");
+    return;
+  }
+  
   const confettiContainer = document.createElement('div');
   confettiContainer.id = 'leetcode-buddy-confetti';
   confettiContainer.style.cssText = `
@@ -136,10 +142,10 @@ export function triggerConfetti() {
 }
 
 /**
- * Show a celebration notification when problem is solved
+ * Show a celebration when problem is solved (confetti only, no toast)
  * @returns {Promise<void>}
  */
-export async function showSolvedNotification() {
+export async function showCelebration() {
   // Check if celebration should be shown
   const shouldShowCelebration = await checkIfShouldShowCelebration();
   
@@ -148,68 +154,14 @@ export async function showSolvedNotification() {
     triggerConfetti();
     await markCelebrationAsShown();
   }
-  
-  // Always show the notification
-  const notification = document.createElement("div");
-  notification.id = "leetcode-buddy-notification";
-  notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    color: white;
-    padding: 20px 24px;
-    border-radius: 12px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    z-index: 10002;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    font-size: 16px;
-    font-weight: 600;
-    max-width: 350px;
-    animation: slideIn 0.5s ease-out;
-  `;
-  notification.innerHTML = `
-    <div style="margin-bottom: 8px; font-size: 32px; animation: bounce 0.6s ease-in-out;">🎉</div>
-    <div style="font-size: 18px; margin-bottom: 4px;">Amazing! Daily Problem Solved!</div>
-    <div style="font-size: 14px; font-weight: 400; opacity: 0.95; margin-top: 6px;">
-      All websites unblocked until midnight. Great work! 🎊
-    </div>
-  `;
+}
 
-  // Add animations if not already added
-  if (!document.getElementById('notification-animation-styles')) {
-    const style = document.createElement('style');
-    style.id = 'notification-animation-styles';
-    style.textContent = `
-      @keyframes slideIn {
-        from {
-          transform: translateX(400px);
-          opacity: 0;
-        }
-        to {
-          transform: translateX(0);
-          opacity: 1;
-        }
-      }
-      @keyframes bounce {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.3); }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  
-  document.body.appendChild(notification);
-
-  // Remove notification after 6 seconds
-  setTimeout(() => {
-    notification.style.transition = "opacity 0.5s, transform 0.5s";
-    notification.style.opacity = "0";
-    notification.style.transform = "translateX(400px)";
-    
-    setTimeout(() => {
-      notification.remove();
-    }, 500);
-  }, 6000);
+/**
+ * @deprecated Use showCelebration() instead. Kept for backward compatibility.
+ * Show a celebration notification when problem is solved
+ * @returns {Promise<void>}
+ */
+export async function showSolvedNotification() {
+  return showCelebration();
 }
 
