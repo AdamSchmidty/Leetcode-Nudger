@@ -1,5 +1,7 @@
 // Leetcode Buddy - Popup Script with Category Stats
 
+const ALIASES_PATH = "src/assets/data/problemAliases.json";
+
 // DOM elements
 const progressFill = document.getElementById("progressFill");
 const solvedCount = document.getElementById("solvedCount");
@@ -8,7 +10,55 @@ const currentProblemName = document.getElementById("currentProblemName");
 const currentCategory = document.getElementById("currentCategory");
 const currentDifficulty = document.getElementById("currentDifficulty");
 const currentProblemLink = document.getElementById("currentProblemLink");
+const neetcodeVideoLink = document.getElementById("neetcodeVideoLink");
 const dailyStatus = document.getElementById("dailyStatus");
+
+// Load aliases for NeetCode URL resolution
+let problemAliases = {};
+
+async function loadAliases() {
+  try {
+    const response = await fetch(chrome.runtime.getURL(ALIASES_PATH));
+    problemAliases = await response.json();
+    return problemAliases;
+  } catch (error) {
+    console.error("Failed to load aliases:", error);
+    return {};
+  }
+}
+
+// Find alias for a canonical slug (reverse lookup)
+function findAliasForSlug(canonicalSlug) {
+  for (const [alias, canonical] of Object.entries(problemAliases)) {
+    if (canonical === canonicalSlug) {
+      return alias;
+    }
+  }
+  return null;
+}
+
+// Get NeetCode slug for URL
+function getNeetCodeSlug(slug) {
+  // First check if the slug itself is an alias
+  if (problemAliases[slug]) {
+    return slug;
+  }
+  
+  // Check if there's an alias for this canonical slug
+  const alias = findAliasForSlug(slug);
+  if (alias) {
+    return alias;
+  }
+  
+  // No alias found, use original slug
+  return slug;
+}
+
+// Get NeetCode solution URL
+function getNeetCodeUrl(slug) {
+  const neetcodeSlug = getNeetCodeSlug(slug);
+  return `https://neetcode.io/solutions/${neetcodeSlug}`;
+}
 const categoryList = document.getElementById("categoryList");
 const toggleCategories = document.getElementById("toggleCategories");
 const bypassActive = document.getElementById("bypassActive");
@@ -118,6 +168,7 @@ async function updateStatus() {
           problem.difficulty
         )}`;
         currentProblemLink.href = `https://leetcode.com/problems/${problem.slug}/`;
+        neetcodeVideoLink.href = getNeetCodeUrl(problem.slug);
       }
 
       // Update daily solve status with celebration animation
@@ -285,7 +336,8 @@ optionsButton.addEventListener("click", () => {
 });
 
 // Initialize on load
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await loadAliases();
   updateStatus();
 
   // Refresh status every 30 seconds

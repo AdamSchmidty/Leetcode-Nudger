@@ -161,6 +161,13 @@ header h1 {
   color: #991b1b;
 }
 
+.problem-links {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
 .problem-link {
   display: inline-block;
   color: #667eea;
@@ -172,6 +179,24 @@ header h1 {
 
 .problem-link:hover {
   color: #764ba2;
+}
+
+.neetcode-video-link {
+  font-size: 18px;
+  text-decoration: none;
+  opacity: 0.7;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  line-height: 1;
+}
+
+.neetcode-video-link:hover {
+  opacity: 1;
+  transform: scale(1.15);
 }
 
 .category-stats-section {

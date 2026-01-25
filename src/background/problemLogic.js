@@ -68,6 +68,68 @@ export function resolveProblemAlias(slug) {
 }
 
 /**
+ * Find alias for a canonical slug (reverse lookup)
+ * @param {string} canonicalSlug - Canonical problem slug
+ * @returns {string|null} Alias if found, null otherwise
+ */
+function findAliasForSlug(canonicalSlug) {
+  for (const [alias, canonical] of Object.entries(problemAliases)) {
+    if (canonical === canonicalSlug) {
+      return alias;
+    }
+  }
+  return null;
+}
+
+/**
+ * Get the slug to use for NeetCode URL
+ * Uses alias if available, otherwise uses the original slug
+ * @param {string} slug - Problem slug (canonical or alias)
+ * @returns {string} Slug to use for NeetCode URL
+ */
+export function getNeetCodeSlug(slug) {
+  // First check if the slug itself is an alias
+  if (problemAliases[slug]) {
+    // It's an alias, use it directly
+    return slug;
+  }
+  
+  // Check if there's an alias for this canonical slug
+  const alias = findAliasForSlug(slug);
+  if (alias) {
+    return alias;
+  }
+  
+  // No alias found, use original slug
+  return slug;
+}
+
+/**
+ * Get NeetCode solution URL for a problem
+ * @param {string} slug - Problem slug
+ * @returns {string} NeetCode solution URL
+ */
+export function getNeetCodeUrl(slug) {
+  const neetcodeSlug = getNeetCodeSlug(slug);
+  return `https://neetcode.io/solutions/${neetcodeSlug}`;
+}
+
+/**
+ * Sort problems by difficulty (Easy → Medium → Hard)
+ * @param {Array} problems - Array of problem objects
+ * @returns {Array} Sorted array of problems
+ */
+export function sortProblemsByDifficulty(problems) {
+  const difficultyOrder = { Easy: 0, Medium: 1, Hard: 2 };
+  
+  return [...problems].sort((a, b) => {
+    const diffA = difficultyOrder[a.difficulty] ?? 999;
+    const diffB = difficultyOrder[b.difficulty] ?? 999;
+    return diffA - diffB;
+  });
+}
+
+/**
  * Fetch all problem statuses from LeetCode API
  * @returns {Promise<Map>} Map of problem slug to status
  * @exports For testing purposes
@@ -161,25 +223,41 @@ export async function computeNextProblem(syncAllSolved = false) {
     }
   }
 
+  // Check if sorting by difficulty is enabled
+  const settings = await chrome.storage.sync.get(['sortByDifficulty']);
+  const sortByDifficulty = settings.sortByDifficulty === true;
+
   // Second pass: Find first unsolved problem in order
   for (let catIdx = 0; catIdx < problemSet.categories.length; catIdx++) {
     const category = problemSet.categories[catIdx];
     
-    for (let probIdx = 0; probIdx < category.problems.length; probIdx++) {
-      const problem = category.problems[probIdx];
+    // Get problems, sorted if needed
+    let problemsToCheck = category.problems;
+    if (sortByDifficulty) {
+      problemsToCheck = sortProblemsByDifficulty(category.problems);
+    }
+    
+    for (let probIdx = 0; probIdx < problemsToCheck.length; probIdx++) {
+      const problem = problemsToCheck[probIdx];
       
       if (!solvedProblems.has(problem.slug)) {
         // Found first unsolved problem
+        // Find original index if sorted
+        let originalProbIdx = probIdx;
+        if (sortByDifficulty) {
+          originalProbIdx = category.problems.findIndex(p => p.slug === problem.slug);
+        }
+        
         currentCategoryIndex = catIdx;
-        currentProblemIndex = probIdx;
+        currentProblemIndex = originalProbIdx;
         currentProblemSlug = problem.slug;
         
-        await saveState(catIdx, probIdx, solvedProblems);
+        await saveState(catIdx, originalProbIdx, solvedProblems);
         
         return {
           categoryIndex: catIdx,
           categoryName: category.name,
-          problemIndex: probIdx,
+          problemIndex: originalProbIdx,
           problem: problem,
           totalProblems: problemSet.categories.reduce(
             (sum, cat) => sum + cat.problems.length,

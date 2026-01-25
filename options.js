@@ -1,5 +1,7 @@
 // Leetcode Buddy - Options Page Script
 
+const ALIASES_PATH = "src/assets/data/problemAliases.json";
+
 const problemSetSelect = document.getElementById("problemSetSelect");
 const totalProblems = document.getElementById("totalProblems");
 const totalCategories = document.getElementById("totalCategories");
@@ -9,6 +11,65 @@ const resetConfirm = document.getElementById("resetConfirm");
 const confirmReset = document.getElementById("confirmReset");
 const cancelReset = document.getElementById("cancelReset");
 const celebrationToggle = document.getElementById("celebrationToggle");
+const sortByDifficultyToggle = document.getElementById("sortByDifficultyToggle");
+
+// Load aliases for NeetCode URL resolution
+let problemAliases = {};
+
+async function loadAliases() {
+  try {
+    const response = await fetch(chrome.runtime.getURL(ALIASES_PATH));
+    problemAliases = await response.json();
+    return problemAliases;
+  } catch (error) {
+    console.error("Failed to load aliases:", error);
+    return {};
+  }
+}
+
+// Find alias for a canonical slug (reverse lookup)
+function findAliasForSlug(canonicalSlug) {
+  for (const [alias, canonical] of Object.entries(problemAliases)) {
+    if (canonical === canonicalSlug) {
+      return alias;
+    }
+  }
+  return null;
+}
+
+// Get NeetCode slug for URL
+function getNeetCodeSlug(slug) {
+  // First check if the slug itself is an alias
+  if (problemAliases[slug]) {
+    return slug;
+  }
+  
+  // Check if there's an alias for this canonical slug
+  const alias = findAliasForSlug(slug);
+  if (alias) {
+    return alias;
+  }
+  
+  // No alias found, use original slug
+  return slug;
+}
+
+// Get NeetCode solution URL
+function getNeetCodeUrl(slug) {
+  const neetcodeSlug = getNeetCodeSlug(slug);
+  return `https://neetcode.io/solutions/${neetcodeSlug}`;
+}
+
+// Sort problems by difficulty
+function sortProblemsByDifficulty(problems) {
+  const difficultyOrder = { Easy: 0, Medium: 1, Hard: 2 };
+  
+  return [...problems].sort((a, b) => {
+    const diffA = difficultyOrder[a.difficulty] ?? 999;
+    const diffB = difficultyOrder[b.difficulty] ?? 999;
+    return diffA - diffB;
+  });
+}
 
 // Load current settings
 async function loadSettings() {
@@ -24,7 +85,8 @@ async function loadSettings() {
       // Load selected problem set
       const result = await chrome.storage.sync.get([
         "selectedProblemSet",
-        "celebrationEnabled"
+        "celebrationEnabled",
+        "sortByDifficulty"
       ]);
       const selectedSet = result.selectedProblemSet || "neetcode250";
       problemSetSelect.value = selectedSet;
@@ -32,6 +94,10 @@ async function loadSettings() {
       // Load celebration toggle setting (default: true)
       const celebrationEnabled = result.celebrationEnabled !== false;
       celebrationToggle.checked = celebrationEnabled;
+      
+      // Load sort by difficulty toggle setting (default: false)
+      const sortByDifficulty = result.sortByDifficulty === true;
+      sortByDifficultyToggle.checked = sortByDifficulty;
     }
   } catch (error) {
     console.error("Failed to load settings:", error);
@@ -104,6 +170,27 @@ celebrationToggle.addEventListener("change", async () => {
   }
 });
 
+// Handle sort by difficulty toggle
+sortByDifficultyToggle.addEventListener("change", async () => {
+  const enabled = sortByDifficultyToggle.checked;
+  
+  try {
+    await chrome.storage.sync.set({ sortByDifficulty: enabled });
+    console.log("Sort by difficulty:", enabled ? "enabled" : "disabled");
+    
+    // Recompute next problem to reflect the new ordering
+    await chrome.runtime.sendMessage({ type: "REFRESH_STATUS" });
+    
+    // Re-render category accordion with new sorting
+    await renderCategoryAccordion();
+    
+    // Reload settings to show updated current problem
+    await loadSettings();
+  } catch (error) {
+    console.error("Failed to save sort by difficulty setting:", error);
+  }
+});
+
 // Render category accordion
 async function renderCategoryAccordion() {
   const container = document.getElementById('categoryAccordion');
@@ -161,7 +248,7 @@ function createCategoryAccordionItem(category) {
   const content = document.createElement('div');
   content.className = 'category-content';
   
-  // Add problems
+  // Add problems (already sorted by message handler if needed)
   category.problems.forEach(problem => {
     const problemDiv = document.createElement('div');
     problemDiv.className = `problem-item ${problem.isCurrent ? 'problem-current' : ''}`;
@@ -184,9 +271,18 @@ function createCategoryAccordionItem(category) {
     difficultyDiv.className = `problem-difficulty difficulty-${problem.difficulty.toLowerCase()}`;
     difficultyDiv.textContent = problem.difficulty;
     
+    // Add NeetCode video icon
+    const videoLink = document.createElement('a');
+    videoLink.href = getNeetCodeUrl(problem.slug);
+    videoLink.target = '_blank';
+    videoLink.className = 'neetcode-video-link';
+    videoLink.title = 'View NeetCode solution';
+    videoLink.innerHTML = '▶️';
+    
     problemDiv.appendChild(statusDiv);
     problemDiv.appendChild(titleDiv);
     problemDiv.appendChild(difficultyDiv);
+    problemDiv.appendChild(videoLink);
     
     content.appendChild(problemDiv);
   });
@@ -204,7 +300,8 @@ function createCategoryAccordionItem(category) {
 }
 
 // Initialize on load
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+  await loadAliases();
   loadSettings();
   renderCategoryAccordion();
 });
